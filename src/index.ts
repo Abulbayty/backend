@@ -22,6 +22,7 @@ import { registerAnalyticsRoutes } from './domains/analytics/analytics.routes';
 import { registerAdminRoutes } from './domains/admin/admin.routes';
 import { registerNotificationRoutes } from './domains/notifications/notification.routes';
 import { registerMetricsRoute } from './routes/metrics.routes';
+import { registerPrivacyRoutes } from './domains/privacy/privacy.routes';
 import { closeQueues } from './lib/queue';
 import redisPool from './lib/redisPool';
 import { emailNotificationWorker } from './lib/workers/email-notification.worker';
@@ -87,6 +88,7 @@ registerWebhookRoutes(app, prisma);
 registerAnalyticsRoutes(app, prisma);
 registerAdminRoutes(app, prisma);
 registerMetricsRoute(app, prisma);
+registerPrivacyRoutes(app, prisma);
 
 // Health check endpoint
 app.get('/health', async (_request, _reply) => {
@@ -310,4 +312,3 @@ const startBackgroundWorkers = async (): Promise<void> => {
 void startBackgroundWorkers();
 
 start();
-
