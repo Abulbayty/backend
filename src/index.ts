@@ -17,9 +17,11 @@ import { registerPaymentRoutes } from './domains/payments/payment.routes';
 import { registerChargeRoutes } from './domains/payments/charge.routes';
 import { registerUserRoutes } from './domains/users/user.routes';
 import { registerCreatorPayoutRoutes } from './domains/creators/payout.routes';
+import { registerTeamRoutes } from './domains/teams/team.routes';
 import { registerWebhookRoutes } from './domains/webhooks/webhook.routes';
 import { registerAnalyticsRoutes } from './domains/analytics/analytics.routes';
 import { registerAdminRoutes } from './domains/admin/admin.routes';
+import { registerRoleRoutes } from './domains/roles/role.routes';
 import { registerNotificationRoutes } from './domains/notifications/notification.routes';
 import { registerMetricsRoute } from './routes/metrics.routes';
 import { closeQueues } from './lib/queue';
@@ -87,6 +89,7 @@ registerWebhookRoutes(app, prisma);
 registerAnalyticsRoutes(app, prisma);
 registerNotificationRoutes(app, prisma);
 registerAdminRoutes(app, prisma);
+registerRoleRoutes(app, prisma);
 registerMetricsRoute(app, prisma);
 
 // Health check endpoint
@@ -197,6 +200,8 @@ const shutdown = async (signal: 'SIGTERM' | 'SIGINT'): Promise<void> => {
     // the forceExitTimer above is the outer safety net for this whole
     // sequence, including this step).
     await app.close();
+    // Flush buffered creator usage counters before the database goes away.
+    await creatorTiers.close();
     await emailNotificationWorker.close();
     await closeQueues();
     await closeDatabase();
@@ -238,9 +243,11 @@ const bootstrap = async (): Promise<void> => {
   registerPaymentRoutes(app, prisma);
   registerUserRoutes(app, prisma);
   registerCreatorPayoutRoutes(app, prisma);
+  registerTeamRoutes(app, prisma);
   registerWebhookRoutes(app, prisma);
   registerAnalyticsRoutes(app, prisma);
   registerAdminRoutes(app, prisma);
+  registerRoleRoutes(app, prisma);
   registerMetricsRoute(app, prisma);
   registerQueryPerformanceRoutes(app);
   registerJobRoutes(app);
@@ -311,4 +318,3 @@ const startBackgroundWorkers = async (): Promise<void> => {
 void startBackgroundWorkers();
 
 start();
-
