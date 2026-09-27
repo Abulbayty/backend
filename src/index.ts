@@ -20,6 +20,7 @@ import { registerCreatorPayoutRoutes } from './domains/creators/payout.routes';
 import { registerWebhookRoutes } from './domains/webhooks/webhook.routes';
 import { registerAnalyticsRoutes } from './domains/analytics/analytics.routes';
 import { registerAdminRoutes } from './domains/admin/admin.routes';
+import { registerMediaRoutes } from './domains/media/media.routes';
 import { registerNotificationRoutes } from './domains/notifications/notification.routes';
 import { registerMetricsRoute } from './routes/metrics.routes';
 import { closeQueues } from './lib/queue';
@@ -86,6 +87,7 @@ registerCreatorPayoutRoutes(app, prisma);
 registerWebhookRoutes(app, prisma);
 registerAnalyticsRoutes(app, prisma);
 registerAdminRoutes(app, prisma);
+registerMediaRoutes(app, prisma);
 registerMetricsRoute(app, prisma);
 
 // Health check endpoint
@@ -240,6 +242,7 @@ const bootstrap = async (): Promise<void> => {
   registerWebhookRoutes(app, prisma);
   registerAnalyticsRoutes(app, prisma);
   registerAdminRoutes(app, prisma);
+  registerMediaRoutes(app, prisma);
   registerMetricsRoute(app, prisma);
   registerQueryPerformanceRoutes(app);
   registerJobRoutes(app);
@@ -262,7 +265,7 @@ const start = async (): Promise<void> => {
     startRedisHealthCheck();
 
     if (config.ENABLE_WORKERS) {
-      startWorkers().catch((err) => {
+      startWorkers(prisma).catch((err) => {
         app.log.error({ err }, 'Failed to start background workers');
       });
     }

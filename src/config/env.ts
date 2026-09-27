@@ -111,6 +111,43 @@ const EnvSchema = z.object({
   RATE_LIMIT_AUTHENTICATED_WINDOW_MS: z.string().transform(Number).default('60000'),
   RATE_LIMIT_SENSITIVE_MAX: z.string().transform(Number).default('10'),
   RATE_LIMIT_SENSITIVE_WINDOW_MS: z.string().transform(Number).default('60000'),
+  // Tip media uploads (#64). `MEDIA_STORAGE=local` keeps files on disk and
+  // `MEDIA_SCANNER=eicar` is the development scanner; production is expected to
+  // run `MEDIA_STORAGE=s3` with a clamd instance behind CLAMAV_HOST.
+  MEDIA_STORAGE: z.enum(['s3', 'local']).default('local'),
+  MEDIA_LOCAL_ROOT: z.string().default('var/media'),
+  MEDIA_STORAGE_TIMEOUT_MS: z.string().transform(Number).default('15000'),
+  MEDIA_S3_BUCKET: z.string().optional(),
+  MEDIA_S3_REGION: z.string().default('us-east-1'),
+  MEDIA_S3_ACCESS_KEY_ID: z.string().optional(),
+  MEDIA_S3_SECRET_ACCESS_KEY: z.string().optional(),
+  MEDIA_S3_SESSION_TOKEN: z.string().optional(),
+  MEDIA_S3_ENDPOINT: z.string().optional(),
+  MEDIA_S3_FORCE_PATH_STYLE: z
+    .string()
+    .transform((val) => val === 'true')
+    .default('false'),
+  MEDIA_CDN_BASE_URL: z.string().optional(),
+  // direct = presigned upload straight to storage; proxy = bytes through the API.
+  MEDIA_UPLOAD_MODE: z.enum(['direct', 'proxy']).default('direct'),
+  MEDIA_UPLOAD_TTL_SECONDS: z.string().transform(Number).default(String(15 * 60)),
+  MEDIA_MAX_IMAGE_BYTES: z.string().transform(Number).default(String(8 * 1024 * 1024)),
+  MEDIA_MAX_VIDEO_BYTES: z.string().transform(Number).default(String(64 * 1024 * 1024)),
+  MEDIA_DEFAULT_QUOTA_BYTES: z.string().transform(Number).default(String(256 * 1024 * 1024)),
+  MEDIA_SCANNER: z
+    .enum(['clamav', 'eicar', 'none'])
+    .default(process.env.NODE_ENV === 'production' ? 'clamav' : 'eicar'),
+  CLAMAV_HOST: z.string().optional(),
+  CLAMAV_PORT: z.string().transform(Number).default('3310'),
+  CLAMAV_TIMEOUT_MS: z.string().transform(Number).default('15000'),
+  // sharp is optional; ffmpeg/ffprobe are probed at runtime.
+  MEDIA_PROCESSOR: z.enum(['auto', 'sharp', 'ffmpeg', 'none']).default('auto'),
+  MEDIA_TRANSCODE_VIDEO: z
+    .string()
+    .transform((val) => val === 'true')
+    .default('false'),
+  MEDIA_FFMPEG_PATH: z.string().default('ffmpeg'),
+  MEDIA_FFPROBE_PATH: z.string().default('ffprobe'),
 });
 
 type Environment = z.infer<typeof EnvSchema>;

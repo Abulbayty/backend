@@ -7,6 +7,7 @@ import {
   isValidStellarPublicKey,
 } from '../../lib/stellar/validation';
 import { zodToJsonSchema } from '../../utils/zod-to-json-schema';
+import { MAX_MEDIA_PER_TIP } from '../media/media.types';
 
 /**
  * Request schemas for the payments domain.
@@ -73,6 +74,14 @@ export const CreateTipSchema = z.object({
   message: sanitizedText(500, 'Message').optional(),
   currency: z.enum(['USD', 'XLM', 'USDC']).default('USD'),
   idempotencyKey: z.string().trim().min(8, 'Idempotency key is too short').max(255).optional(),
+  /**
+   * Media uploaded beforehand and attached to this tip's message (#64). Every
+   * id must belong to the tipper and be in the `ready` state.
+   */
+  mediaIds: z
+    .array(z.string().trim().min(1, 'Media ID is required').max(100, 'Media ID is too long'))
+    .max(MAX_MEDIA_PER_TIP, `A tip can carry at most ${MAX_MEDIA_PER_TIP} media items`)
+    .optional(),
 });
 
 /**
