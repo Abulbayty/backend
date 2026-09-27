@@ -10,6 +10,20 @@ import { CacheWarmer } from '../../lib/cache/cache-warming';
 export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient): void => {
   const adminService = new AdminService(prisma);
 
+  app.post<{ Body: { creatorIds: string[] } }>(
+    '/api/v1/admin/batches/creators/verify',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      try {
+        const result = await adminService.bulkVerifyCreators(request.user?.userId ?? '', request.body.creatorIds);
+        return reply.code(202).send(formatSuccess(result));
+      } catch (error) {
+        if (error instanceof AppError) return reply.code(error.statusCode).send(formatError(error.message, error.code));
+        throw error;
+      }
+    },
+  );
+
   // POST /api/v1/admin/wallets/:address/flag - Flag wallet
   app.post<{ Params: { address: string }; Body: FlagWalletRequest }>(
     '/api/v1/admin/wallets/:address/flag',
