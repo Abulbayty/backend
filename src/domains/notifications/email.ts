@@ -1,6 +1,6 @@
 import { emailNotificationQueue } from '../../lib/queue';
 
-export type EmailTemplate = 'verification' | 'password-reset' | 'notification';
+export type EmailTemplate = 'verification' | 'password-reset' | 'creator-verification' | 'notification';
 
 export interface EmailNotification {
   to: string;
@@ -46,6 +46,11 @@ export function renderEmail(template: EmailTemplate, data: Record<string, string
   }
   if (template === 'password-reset') {
     return { subject: 'Reset your Dorisio password', html: `<p>Hello ${name},</p><p><a href="${link}">Reset your password</a></p>` };
+  }
+  if (template === 'creator-verification') {
+    const status = escape(data.status ?? 'updated');
+    const reason = data.reason ? `<p>Review note: ${escape(data.reason)}</p>` : '';
+    return { subject: `Creator verification ${status}`, html: `<p>Hello ${name},</p><p>Your creator verification request was ${status}.</p>${reason}` };
   }
   return { subject: escape(data.subject ?? 'Dorisio notification'), html: `<p>Hello ${name},</p><p>${escape(data.message ?? '')}</p>` };
 }

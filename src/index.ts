@@ -17,6 +17,7 @@ import { registerPaymentRoutes } from './domains/payments/payment.routes';
 import { registerChargeRoutes } from './domains/payments/charge.routes';
 import { registerUserRoutes } from './domains/users/user.routes';
 import { registerCreatorPayoutRoutes } from './domains/creators/payout.routes';
+import { registerVerificationRoutes } from './domains/creators/verification.routes';
 import { registerWebhookRoutes } from './domains/webhooks/webhook.routes';
 import { registerAnalyticsRoutes } from './domains/analytics/analytics.routes';
 import { registerAdminRoutes } from './domains/admin/admin.routes';
@@ -76,17 +77,6 @@ app.register(cookie);
 app.register(cookie, {
   secret: config.JWT_SECRET,
 });
-
-// Register routes
-registerAuthRoutes(app, prisma);
-registerWalletRoutes(app, prisma);
-registerPaymentRoutes(app, prisma);
-registerUserRoutes(app, prisma);
-registerCreatorPayoutRoutes(app, prisma);
-registerWebhookRoutes(app, prisma);
-registerAnalyticsRoutes(app, prisma);
-registerAdminRoutes(app, prisma);
-registerMetricsRoute(app, prisma);
 
 // Health check endpoint
 app.get('/health', async (_request, _reply) => {
@@ -237,6 +227,7 @@ const bootstrap = async (): Promise<void> => {
   registerPaymentRoutes(app, prisma);
   registerUserRoutes(app, prisma);
   registerCreatorPayoutRoutes(app, prisma);
+  registerVerificationRoutes(app, prisma);
   registerWebhookRoutes(app, prisma);
   registerAnalyticsRoutes(app, prisma);
   registerAdminRoutes(app, prisma);
