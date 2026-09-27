@@ -12,6 +12,7 @@ import { initializeDatabase, closeDatabase, checkDatabaseHealth, getPoolMetrics,
 import { createInstrumentedPrismaClient, getPrismaPerformanceMonitor } from './db/prisma-performance';
 import { getCircuitBreakerSnapshots as getExternalBreakerSnapshots } from './lib/circuit-breaker';
 import { registerAuthRoutes } from './domains/auth/auth.routes';
+import { registerTwoFactorRoutes } from './domains/auth/two-factor.routes';
 import { registerWalletRoutes } from './domains/auth/wallet.routes';
 import { registerPaymentRoutes } from './domains/payments/payment.routes';
 import { registerChargeRoutes } from './domains/payments/charge.routes';
@@ -79,6 +80,7 @@ app.register(cookie, {
 
 // Register routes
 registerAuthRoutes(app, prisma);
+registerTwoFactorRoutes(app, prisma);
 registerWalletRoutes(app, prisma);
 registerPaymentRoutes(app, prisma);
 registerUserRoutes(app, prisma);
@@ -233,6 +235,7 @@ const bootstrap = async (): Promise<void> => {
   registerApiVersioning(app);
 
   registerAuthRoutes(app, prisma);
+  registerTwoFactorRoutes(app, prisma);
   registerWalletRoutes(app, prisma);
   registerPaymentRoutes(app, prisma);
   registerUserRoutes(app, prisma);
@@ -310,4 +313,3 @@ const startBackgroundWorkers = async (): Promise<void> => {
 void startBackgroundWorkers();
 
 start();
-
