@@ -32,9 +32,11 @@ import { registerPaymentRoutes } from './domains/payments/payment.routes';
 import { registerChargeRoutes } from './domains/payments/charge.routes';
 import { registerUserRoutes } from './domains/users/user.routes';
 import { registerCreatorPayoutRoutes } from './domains/creators/payout.routes';
+import { registerTeamRoutes } from './domains/teams/team.routes';
 import { registerWebhookRoutes } from './domains/webhooks/webhook.routes';
 import { registerAnalyticsRoutes } from './domains/analytics/analytics.routes';
 import { registerAdminRoutes } from './domains/admin/admin.routes';
+import { registerRoleRoutes } from './domains/roles/role.routes';
 import { registerNotificationRoutes } from './domains/notifications/notification.routes';
 import { registerMetricsRoute } from './routes/metrics.routes';
 import { registerQueryPerformanceRoutes } from './routes/query-performance.routes';
@@ -90,6 +92,19 @@ applyJsonSerializer(app);
 app.register(cookie, {
   secret: config.JWT_SECRET,
 });
+
+// Register routes
+registerAuthRoutes(app, prisma);
+registerWalletRoutes(app, prisma);
+registerPaymentRoutes(app, prisma);
+registerUserRoutes(app, prisma);
+registerCreatorPayoutRoutes(app, prisma);
+registerWebhookRoutes(app, prisma);
+registerAnalyticsRoutes(app, prisma);
+registerNotificationRoutes(app, prisma);
+registerAdminRoutes(app, prisma);
+registerRoleRoutes(app, prisma);
+registerMetricsRoute(app, prisma);
 
 // Health check endpoint
 app.get('/health', async (_request, _reply) => {
@@ -194,6 +209,8 @@ const shutdown = async (signal: 'SIGTERM' | 'SIGINT'): Promise<void> => {
     // the forceExitTimer above is the outer safety net for this whole
     // sequence, including this step).
     await app.close();
+    // Flush buffered creator usage counters before the database goes away.
+    await creatorTiers.close();
     await emailNotificationWorker.close();
     await closeQueues();
     await closeDatabase();
@@ -235,10 +252,11 @@ const bootstrap = async (): Promise<void> => {
   registerChargeRoutes(app, prisma);
   registerUserRoutes(app, prisma);
   registerCreatorPayoutRoutes(app, prisma);
+  registerTeamRoutes(app, prisma);
   registerWebhookRoutes(app, prisma);
   registerAnalyticsRoutes(app, prisma);
   registerAdminRoutes(app, prisma);
-  registerNotificationRoutes(app, prisma);
+  registerRoleRoutes(app, prisma);
   registerMetricsRoute(app, prisma);
   registerQueryPerformanceRoutes(app);
   registerJobRoutes(app);
