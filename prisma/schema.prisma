@@ -22,6 +22,11 @@ model User {
   wallets   Wallet[]
   tips      Tip[]
   payments  Payment[]
+
+  @@index([role])
+  @@index([createdAt])
+  // Admin listing: filter by role, order by recency (issue #12).
+  @@index([role, createdAt(sort: Desc)], map: "idx_user_role_createdAt")
 }
 
 model Creator {

@@ -2,7 +2,6 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { verifyToken } from '../utils/jwt';
 import { UnauthorizedError } from '../utils/errors';
 import { isTokenBlacklisted } from '../utils/token-blacklist';
-import { config } from '../config';
 import { setRequestContextUserId } from '../lib/requestContext';
 import { registerAuthGuard } from './auth-guards';
 

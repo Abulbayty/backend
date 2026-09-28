@@ -5,7 +5,7 @@ let prisma: PrismaClient;
 
 // In-memory cache for blacklisted tokens
 const blacklistCache = new Map<string, Date>();
-let cleanupInterval: NodeJS.Timeout | null = null;
+let cleanupInterval: ReturnType<typeof setTimeout> | null = null;
 
 export const initTokenBlacklist = async (prismaClient: PrismaClient): Promise<void> => {
   prisma = prismaClient;

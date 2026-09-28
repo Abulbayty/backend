@@ -12,7 +12,6 @@ import { ValidationError, NotFoundError, UnauthorizedError, ConflictError } from
 import {
   buildPaymentTransaction,
   submitSignedTransaction,
-  checkTransactionStatus,
 } from '../../lib/stellar/transactions';
 import { logger } from '../../utils/logger';
 import {
@@ -118,7 +117,7 @@ export class PaymentService extends BaseService {
           userId,
           verified: true,
         },
-        select: { id: true },
+        select: { id: true, publicKey: true },
       });
 
       if (!wallet) {

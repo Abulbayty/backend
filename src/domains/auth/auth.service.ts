@@ -10,7 +10,6 @@ import { logger } from '../../utils/logger';
 import { randomUUID, randomBytes } from 'crypto';
 import { sendEmail } from '../../domains/notifications/email';
 
-const uuidv4 = (): string => randomUUID();
 
 export class AuthService extends BaseService {
   constructor(private prisma: PrismaClient) {

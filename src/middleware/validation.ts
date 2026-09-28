@@ -33,6 +33,7 @@ export interface ValidationIssue {
 }
 
 export interface RequestValidationErrorDetails {
+  [key: string]: unknown;
   issues: ValidationIssue[];
 }
 

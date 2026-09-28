@@ -3,8 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import { AdminService, FlagWalletRequest, FreezeAccountRequest } from './admin.service';
 import { formatSuccess, formatError } from '../../types/response';
 import { requireAdmin } from '../../middleware/rbac';
-import { ValidationError, AppError, UnauthorizedError } from '../../utils/errors';
-import cache, { getStats, getHitRate, resetStats } from '../../lib/cache/index';
+import { AppError, UnauthorizedError } from '../../utils/errors';
+import cache, { getStats, resetStats } from '../../lib/cache/index';
 import { CacheWarmer } from '../../lib/cache/cache-warming';
 
 export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient): void => {
@@ -36,9 +36,9 @@ export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient):
           },
         },
         response: {
-          201: { description: 'Wallet flagged' },
-          401: { description: 'Unauthorized' },
-          403: { description: 'Admin only' },
+          201: { type: 'null', description: 'Wallet flagged' },
+          401: { type: 'null', description: 'Unauthorized' },
+          403: { type: 'null', description: 'Admin only' },
         },
       },
     },
@@ -80,9 +80,9 @@ export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient):
           },
         },
         response: {
-          200: { description: 'Flag resolved' },
-          401: { description: 'Unauthorized' },
-          403: { description: 'Admin only' },
+          200: { type: 'null', description: 'Flag resolved' },
+          401: { type: 'null', description: 'Unauthorized' },
+          403: { type: 'null', description: 'Admin only' },
         },
       },
     },
@@ -132,9 +132,9 @@ export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient):
           },
         },
         response: {
-          201: { description: 'Account frozen' },
-          401: { description: 'Unauthorized' },
-          403: { description: 'Admin only' },
+          201: { type: 'null', description: 'Account frozen' },
+          401: { type: 'null', description: 'Unauthorized' },
+          403: { type: 'null', description: 'Admin only' },
         },
       },
     },
@@ -176,9 +176,9 @@ export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient):
           },
         },
         response: {
-          200: { description: 'Account unfrozen' },
-          401: { description: 'Unauthorized' },
-          403: { description: 'Admin only' },
+          200: { type: 'null', description: 'Account unfrozen' },
+          401: { type: 'null', description: 'Unauthorized' },
+          403: { type: 'null', description: 'Admin only' },
         },
       },
     },
@@ -213,9 +213,9 @@ export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient):
 
         
         response: {
-          200: { description: 'Moderation queue' },
-          401: { description: 'Unauthorized' },
-          403: { description: 'Admin only' },
+          200: { type: 'null', description: 'Moderation queue' },
+          401: { type: 'null', description: 'Unauthorized' },
+          403: { type: 'null', description: 'Admin only' },
         },
       },
     },
@@ -253,9 +253,9 @@ export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient):
 
         
         response: {
-          200: { description: 'Cache statistics' },
-          401: { description: 'Unauthorized' },
-          403: { description: 'Admin only' },
+          200: { type: 'null', description: 'Cache statistics' },
+          401: { type: 'null', description: 'Unauthorized' },
+          403: { type: 'null', description: 'Admin only' },
         },
       },
     },
@@ -289,9 +289,9 @@ export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient):
 
         
         response: {
-          200: { description: 'Cache cleared' },
-          401: { description: 'Unauthorized' },
-          403: { description: 'Admin only' },
+          200: { type: 'null', description: 'Cache cleared' },
+          401: { type: 'null', description: 'Unauthorized' },
+          403: { type: 'null', description: 'Admin only' },
         },
       },
     },
@@ -332,9 +332,9 @@ export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient):
           },
         },
         response: {
-          200: { description: 'Cache key invalidated' },
-          401: { description: 'Unauthorized' },
-          403: { description: 'Admin only' },
+          200: { type: 'null', description: 'Cache key invalidated' },
+          401: { type: 'null', description: 'Unauthorized' },
+          403: { type: 'null', description: 'Admin only' },
         },
       },
     },
@@ -375,9 +375,9 @@ export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient):
           },
         },
         response: {
-          200: { description: 'Cache warming triggered' },
-          401: { description: 'Unauthorized' },
-          403: { description: 'Admin only' },
+          200: { type: 'null', description: 'Cache warming triggered' },
+          401: { type: 'null', description: 'Unauthorized' },
+          403: { type: 'null', description: 'Admin only' },
         },
       },
     },
@@ -429,9 +429,9 @@ export const registerAdminRoutes = (app: FastifyInstance, prisma: PrismaClient):
 
         
         response: {
-          200: { description: 'Cache statistics reset' },
-          401: { description: 'Unauthorized' },
-          403: { description: 'Admin only' },
+          200: { type: 'null', description: 'Cache statistics reset' },
+          401: { type: 'null', description: 'Unauthorized' },
+          403: { type: 'null', description: 'Admin only' },
         },
       },
     },

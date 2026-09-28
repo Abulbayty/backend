@@ -218,11 +218,25 @@ npm run test
 
 ## Environment Variables
 
-See `.env.example` for complete configuration. Key variables:
+All configuration is **centralized and validated at startup** (issue #60).
+Every variable is declared in a single Zod schema (`src/config/schema.ts`),
+validated when the process boots, and fails fast with a readable list of all
+problems — missing keys, wrong types, out-of-range values — before the server
+listens.
+
+- **Full reference:** [docs/CONFIGURATION.md](docs/CONFIGURATION.md) — every
+  variable with type, default, range, secret flag and hot-reload behavior.
+- **Template:** [`.env.example`](.env.example) — copy to `.env` (git-ignored)
+  and fill in real values.
+- **Per-environment defaults:** `.env.development`, `.env.staging`,
+  `.env.production` — selected by `NODE_ENV`; real environment variables
+  always win.
+
+Key variables:
 
 ```
 # Server
-NODE_ENV=development|staging|production
+NODE_ENV=development|staging|production|test
 LOG_LEVEL=debug|info|warn|error
 PORT=3000
 
@@ -231,24 +245,46 @@ DATABASE_URL=postgresql://user:pass@host:5432/dorisio
 
 # Stellar
 STELLAR_NETWORK=testnet|mainnet
-HORIZON_URL=https://horizon-testnet.stellar.org
-STELLAR_SECRET_KEY=...
+STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
+STELLAR_SERVER_SECRET_KEY=...
 
-# Redis (for BullMQ queues)
+# Redis (pools, rate limiting, queues)
 REDIS_URL=redis://localhost:6379
 
 # JWT
-JWT_SECRET=...
-JWT_EXPIRE=24h
-
-# Admin
-ADMIN_WALLET_ADDRESS=...
+JWT_SECRET=<32+ chars in production>
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
 
 # Reverse proxy / rate limiting (see docs/RATE_LIMITING.md)
 TRUST_PROXY=false|<hop count>|<proxy IPs/CIDRs>
 RATE_LIMIT_ENABLED=true
 RATE_LIMIT_STORE=memory|redis
 ```
+
+Secrets may reference the environment or a secrets provider with
+`{{ SECRET_NAME }}` syntax (an unresolved reference aborts startup):
+
+```
+DATABASE_URL={{ DATABASE_URL }}
+JWT_SECRET={{ JWT_SECRET }}
+```
+
+**Feature flags** toggle features per environment with `FEATURE_*` variables
+and are read in code via `isFeatureEnabled('<name>')` from `src/config`:
+
+```
+FEATURE_EMAIL_VERIFICATION=true
+FEATURE_ANALYTICS=true
+FEATURE_WEBHOOKS=true
+FEATURE_EXPORTS=true
+FEATURE_MAINTENANCE_MODE=false
+```
+
+Configuration loads, overrides and hot reloads are recorded in a redacted
+audit log (`src/config/audit.ts`). Non-critical settings can be reloaded
+without a restart via `reloadConfig()`; critical secrets are pinned at boot
+by design. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ## Deployment
 

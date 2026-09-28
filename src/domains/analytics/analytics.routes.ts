@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { AnalyticsService } from './analytics.service';
 import { formatSuccess, formatError } from '../../types/response';
 import { authMiddleware } from '../../middleware/auth';
-import { ValidationError, AppError, NotFoundError } from '../../utils/errors';
+import { AppError } from '../../utils/errors';
 
 export const registerAnalyticsRoutes = (app: FastifyInstance, prisma: PrismaClient): void => {
   const analyticsService = new AnalyticsService(prisma);
@@ -52,10 +52,7 @@ export const registerAnalyticsRoutes = (app: FastifyInstance, prisma: PrismaClie
     '/api/v1/analytics/earnings',
     {
       preHandler: authMiddleware,
-      schema {
-
-
-
+      schema: {
         querystring: {
           type: 'object',
           properties: {
