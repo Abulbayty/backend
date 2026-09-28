@@ -330,8 +330,9 @@ interface ConfigAuditEntry {
 }
 ```
 
-- **Bounded**: a fixed-size ring buffer (default 500 entries) so long-running
-  processes can't grow it unboundedly; oldest entries evicted.
+- **Bounded**: a fixed-size ring buffer (default 500 entries; 200 reload
+  entries) so long-running processes can't grow it unboundedly; oldest
+  entries evicted.
 - **Redacted**: secret keys (see `isSecretKey`) never appear in clear text.
 - **Observable**: each entry is also emitted as a structured log line with
   `configAudit: true` so changes can be alerted/searched in log aggregation —
@@ -516,11 +517,21 @@ reconstruction of the intended merged code:
     block-scoped `isDbAvailable` declaration; kept the correct one.
 15. **`src/__tests__/integration/admin.routes.test.ts`** —
     `vi.mock` factory referenced `authMiddlewareMock` before initialization
-    (hoisting violation); moved the mock variable into the factory scope.
-16. **`prisma/schema.prisma`** — `@@index([transactionHash])` on `Payout`
-    referenced by `prisma/__tests__/indexes.test.ts` was missing; added it
-    (matches the migration's `CREATE INDEX` set).
-17. **`src/lib/workers/*.ts`** — now compile against the unified queue module
+    (hoisting violation); the mock is now created with `vi.hoisted()`.
+16. **`prisma/schema.prisma`** — the `User` indexes asserted by
+    `prisma/__tests__/indexes.test.ts` (`@@index([role])`,
+    `@@index([createdAt])`, `map: "idx_user_role_createdAt"`) were missing
+    from the schema; added them and mirrored the two simple indexes in the
+    query-performance migration so schema and SQL stay consistent.
+17. **`src/middleware/rbac.ts`** — `requireRole` threw `UnauthorizedError`
+    (401) when an authenticated user lacked the required role; admin RBAC
+    tests (and HTTP semantics, issue #35) expect **403 Forbidden** — the
+    identity verified, the role did not. Now throws `ForbiddenError`.
+18. **`src/lib/redisPool.ts`** — the pool's `acquireTimeoutMillis` inherited
+    the 30s connection timeout, so with Redis down every caller (e.g. wallet
+    nonce generation) hung 30s before falling back; capped at 3s so the
+    documented in-memory fallbacks engage quickly.
+19. **`src/lib/workers/*.ts`** — now compile against the unified queue module
     (`backoffStrategy`, `QUEUE_NAMES`) and the new config keys.
 
 Items 1–4 and 6 are mechanical merge repairs evidenced by `git log`
@@ -537,7 +548,7 @@ All four contributor-mandated checks run locally on this branch:
 | --- | --- | --- |
 | Lint — no warnings | `npm run lint` | ✅ 0 errors, 0 warnings |
 | Type-check — zero errors | `npm run type-check` | ✅ 0 errors (was 90 on `main`) |
-| Tests — all pass | `npm run test:run` | ✅ all suites pass (was 15 failures / 10 broken suites on `main`) |
+| Tests — all pass | `npm run test:run` | ✅ 668 passed / 0 failed (was 15 failures / 10 broken suites on `main`) |
 | Build | `npm run build` | ✅ compiles |
 
 (The CI workflow's test job additionally excludes `src/__tests__/**`; those
