@@ -1,7 +1,12 @@
-import dotenv from 'dotenv';
-import { z } from 'zod';
+/**
+ * Back-compat shim (issue #60).
+ *
+ * The validated snapshot now lives in `src/config/loader.ts`; every existing
+ * `import { config } from '../config/env'` keeps working unchanged.
+ */
+import { getConfig } from './loader';
 
-dotenv.config();
+export const config = getConfig();
 
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -126,8 +131,9 @@ const validateEnv = (): Environment => {
     console.error('Invalid environment variables:', env.error.format());
     process.exit(1);
   }
-
-  return env.data;
-};
-
-export const config = validateEnv();
+  const origins = raw
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  return origins.length > 0 ? origins : true;
+}
