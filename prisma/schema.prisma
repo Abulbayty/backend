@@ -742,3 +742,60 @@ model TeamAuditLog {
   @@index([teamId, createdAt(sort: Desc)], map: "idx_teamAuditLog_team_createdAt")
   @@index([teamId, action], map: "idx_teamAuditLog_team_action")
 }
+
+enum SubscriptionInterval {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  PAST_DUE
+  CANCELED
+}
+
+enum ChargeStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+model Subscription {
+  id                 String               @id @default(uuid())
+  supporterId        String
+  creatorId          String
+  amount             Decimal              @db.Decimal(20, 7)
+  interval           SubscriptionInterval
+  status             SubscriptionStatus   @default(ACTIVE)
+  discountPercent    Int                  @default(0)
+  prorateFirst       Boolean              @default(false)
+  currentPeriodStart DateTime
+  nextChargeAt       DateTime
+  failedAttempts     Int                  @default(0)
+  canceledAt         DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  charges            SubscriptionCharge[]
+
+  @@index([status, nextChargeAt])
+  @@index([creatorId])
+  @@index([supporterId])
+}
+
+model SubscriptionCharge {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  periodStart    DateTime
+  amount         Decimal      @db.Decimal(20, 7)
+  status         ChargeStatus @default(PENDING)
+  attempt        Int          @default(1)
+  tipId          String?
+  failureReason  String?
+  createdAt      DateTime     @default(now())
+
+  @@unique([subscriptionId, periodStart])
+}
