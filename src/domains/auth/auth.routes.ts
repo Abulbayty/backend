@@ -5,9 +5,13 @@ import {
   RegisterRequestSchema,
   LoginRequestSchema,
   RefreshTokenRequestSchema,
+  PasswordResetRequestSchema,
+  PasswordResetConfirmRequestSchema,
   RegisterRequest,
   LoginRequest,
   RefreshTokenRequest,
+  PasswordResetRequest,
+  PasswordResetConfirmRequest,
 } from './auth.types';
 import { formatSuccess, formatError } from '../../types/response';
 import { authMiddleware } from '../../middleware/auth';
@@ -24,30 +28,6 @@ const VerifyEmailSchema = z.object({
 const ResendVerificationSchema = z.object({
   email: z.string().email('Invalid email format'),
 });
-
-/**
- * Parse expiry string like "7d", "24h", "3600" to milliseconds
- */
-function parseExpiryToMs(expiryStr: string): number {
-  const match = expiryStr.match(/^(\d+)([dhms]?)$/);
-  if (!match) return 7 * 24 * 60 * 60 * 1000; // Default 7 days
-
-  const value = parseInt(match[1], 10);
-  const unit = match[2] || 's';
-
-  switch (unit) {
-    case 'd':
-      return value * 24 * 60 * 60 * 1000;
-    case 'h':
-      return value * 60 * 60 * 1000;
-    case 'm':
-      return value * 60 * 1000;
-    case 's':
-      return value * 1000;
-    default:
-      return value * 1000;
-  }
-}
 
 /**
  * Parse expiry string like "7d", "24h", "3600" to milliseconds
@@ -211,6 +191,55 @@ export const registerAuthRoutes = (app: FastifyInstance, prisma: PrismaClient): 
         ...result,
         refreshToken: undefined, // Don't send refresh token in body, it's in cookie
       }));
+    }
+  );
+
+  app.post<{ Body: PasswordResetRequest }>(
+    '/api/v1/auth/password-reset',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['email'],
+          properties: { email: { type: 'string', format: 'email' } },
+        },
+        response: { 200: { description: 'Reset instructions are sent when the account exists' } },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = PasswordResetRequestSchema.parse(request.body);
+      const result = await authService.requestPasswordReset(body.email);
+      reply.send(formatSuccess(result));
+    }
+  );
+
+  app.post<{ Body: PasswordResetConfirmRequest }>(
+    '/api/v1/auth/password-reset/confirm',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['token', 'newPassword'],
+          properties: {
+            token: { type: 'string', minLength: 1 },
+            newPassword: {
+              type: 'string',
+              minLength: 8,
+              description: 'At least 8 characters with uppercase, lowercase, and number',
+            },
+          },
+        },
+        response: {
+          200: { description: 'Password reset completed' },
+          400: { description: 'Invalid, expired, or already used token' },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = PasswordResetConfirmRequestSchema.parse(request.body);
+      const result = await authService.confirmPasswordReset(body.token, body.newPassword);
+      reply.clearCookie('refreshToken', { path: '/' });
+      reply.send(formatSuccess(result));
     }
   );
 
