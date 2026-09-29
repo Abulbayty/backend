@@ -11,9 +11,9 @@
  *   5. Routes, GraphQL, metrics.
  *   6. Graceful shutdown (issue #23): flip readiness, drain, close in order.
  */
-import Fastify from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
 import compress from '@fastify/compress';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -53,6 +53,12 @@ import { collectConfigWarnings, logConfigWarnings } from './config/warnings';
 import { logger } from './utils/logger';
 import { registerRateLimiting } from './plugins/rateLimit';
 import { registerResponseOptimization } from './plugins/responseOptimization';
+import { swaggerConfig } from './config/swagger';
+import { registerSecurityPlugins } from './plugins/security';
+import { registerApiVersioning } from './plugins/apiVersion';
+import { globalErrorHandler, notFoundHandler } from './middleware/error-handler';
+import { registerGraphQL } from './graphql/plugin';
+import { startCacheInvalidationSubscriber, stopCacheInvalidationSubscriber } from './lib/cache/invalidation';
 
 // Behind a reverse proxy, TRUST_PROXY makes request.ip the real client
 // address instead of the proxy's, so per-IP rate limits don't bucket every
@@ -60,7 +66,6 @@ import { registerResponseOptimization } from './plugins/responseOptimization';
 const trustProxy = parseTrustProxy(config.TRUST_PROXY);
 
 const app = Fastify({
-  http2: config.HTTP2_ENABLED,
   trustProxy,
   genReqId: (request) => {
     const incoming = request.headers['x-request-id'];
@@ -71,7 +76,7 @@ const app = Fastify({
   logger: {
     level: config.LOG_LEVEL,
   },
-});
+}) as unknown as FastifyInstance;
 
 // Unsafe-but-valid settings (e.g. TRUST_PROXY=true) are reported together on
 // boot; see src/config/warnings.ts.
@@ -85,6 +90,8 @@ await app.register(compress, {
   encodings: ['br', 'gzip', 'deflate'],
   threshold: 1024,
 });
+await app.register(swagger, swaggerConfig.openapi);
+await app.register(swaggerUi, swaggerConfig.uiConfig);
 registerResponseOptimization(app);
 
 // Initialize Prisma with query performance instrumentation (issue #12):
@@ -217,7 +224,7 @@ const shutdown = async (signal: 'SIGTERM' | 'SIGINT'): Promise<void> => {
     // sequence, including this step).
     await app.close();
     // Flush buffered creator usage counters before the database goes away.
-    await creatorTiers.close();
+    await stopCacheInvalidationSubscriber();
     await emailNotificationWorker.close();
     await closeQueues();
     await closeDatabase();
@@ -246,6 +253,7 @@ const bootstrap = async (): Promise<void> => {
   await registerSecurityPlugins(app);
 
   await initTokenBlacklist(prisma);
+  await startCacheInvalidationSubscriber();
 
   // API versioning (#25): validates an optional API-Version header against
   // SUPPORTED_API_VERSIONS and records per-version usage metrics. Existing

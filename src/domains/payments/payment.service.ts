@@ -22,6 +22,7 @@ import {
 import { paginateWithCursor } from '../../db/pagination';
 import { buildTipMemo, validateMemo, validatePaymentAmount } from '../../lib/stellar/validation';
 import { TipFilterInput, buildTipWhere, describeTipFilters } from './tip-filters';
+import { invalidateCaches, tipCacheKeys } from '../../lib/cache/invalidation';
 
 /**
  * Columns required to build a `TipResponse`. Selecting explicitly keeps list
@@ -202,6 +203,7 @@ export class PaymentService extends BaseService {
       }
 
       logger.info(`Tip created: ${tip.id} from ${userId} to ${data.creatorId} for ${data.amount}`);
+      await invalidateCaches(tipCacheKeys(tip.id, data.creatorId), 'tip.created');
       return this.formatTipResponse(tip);
     });
   }
@@ -785,6 +787,7 @@ export class PaymentService extends BaseService {
       }
 
       // Dispatch webhooks outside transaction
+      await invalidateCaches(tipCacheKeys(tipId, finalTip.creatorId), 'tip.completed');
       if (shouldDispatchWebhook) {
         try {
           // Dynamic import to avoid circular dependencies if any
