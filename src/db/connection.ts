@@ -6,7 +6,7 @@ import {
   CircuitBreakerState,
   CircuitBreakerMetrics,
 } from './circuit-breaker';
-import { QueryLogger, QueryLogOptions } from './query-logger';
+import { QueryLogger } from './query-logger';
 import { QueryCache, isReadOnlyQuery } from './query-cache';
 import { PreparedStatementConfig } from './query-optimizer';
 import {
@@ -178,7 +178,7 @@ export const initializeDatabase = async (
     pool = new Pool(poolConfig);
 
     // Event listeners on pool
-    pool.on('error', (err: Error, client: PoolClient) => {
+    pool.on('error', (err: Error, _client: PoolClient) => {
       logger.error({ err }, 'Unexpected error on idle database client');
       dbQueryErrorsCounter.inc({ error_code: 'IDLE_CLIENT_ERROR' });
       // Client is automatically discarded by pg.Pool upon error event

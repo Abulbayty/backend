@@ -66,6 +66,8 @@ export const RATE_LIMIT_RULES: RateLimitRule[] = [
   { method: 'POST', url: '/api/v1/auth/login', class: 'sensitive' },
   { method: 'POST', url: '/api/v1/auth/register', class: 'sensitive' },
   { method: 'POST', url: '/api/v1/auth/refresh', class: 'sensitive' },
+  { method: 'POST', url: '/api/v1/auth/password-reset', class: 'sensitive' },
+  { method: 'POST', url: '/api/v1/auth/password-reset/confirm', class: 'sensitive' },
   { method: 'POST', url: '/api/v1/wallet/nonce', class: 'sensitive' },
   { method: 'POST', url: '/api/v1/wallet/verify', class: 'sensitive' },
 
