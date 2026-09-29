@@ -22,6 +22,7 @@ import {
 import { paginateWithCursor } from '../../db/pagination';
 import { buildTipMemo, validateMemo, validatePaymentAmount } from '../../lib/stellar/validation';
 import { TipFilterInput, buildTipWhere, describeTipFilters } from './tip-filters';
+import { getRequestId, withRequestIdPayload } from '../../lib/requestContext';
 
 /**
  * Columns required to build a `TipResponse`. Selecting explicitly keeps list
@@ -799,7 +800,8 @@ export class PaymentService extends BaseService {
               await webhookDispatchQueue.add('webhook-dispatch', {
                 webhookId: webhook.id,
                 eventType: 'tip.completed',
-                payload: { tip: finalTip },
+                requestId: getRequestId(),
+                payload: withRequestIdPayload({ tip: finalTip }),
               });
             }
           }

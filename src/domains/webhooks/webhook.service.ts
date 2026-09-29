@@ -3,6 +3,7 @@ import { BaseService } from '../../services/base.service';
 import { ValidationError, NotFoundError } from '../../utils/errors';
 import { webhookDispatchQueue } from '../../lib/queue';
 import { logger } from '../../utils/logger';
+import { getRequestId, withRequestIdPayload } from '../../lib/requestContext';
 import crypto from 'crypto';
 import {
   DEFAULT_PAGE_SIZE,
@@ -207,7 +208,8 @@ export class WebhookService extends BaseService {
               webhookId: webhook.id,
               transactionId,
               eventType,
-              payload,
+              requestId: getRequestId(),
+              payload: withRequestIdPayload(payload),
             },
             {
               attempts: 5,
