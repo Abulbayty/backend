@@ -6,6 +6,9 @@ dotenv.config();
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().transform(Number).default('3000'),
+  HTTP2_ENABLED: z.string().transform((val) => val === 'true').default('false'),
+  RESPONSE_COMPRESSION_ENABLED: z.string().transform((val) => val !== 'false').default('true'),
+  RESPONSE_CACHE_CONTROL: z.string().default('private, no-cache'),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   // Max time (ms) to wait for in-flight requests to drain and resources to
   // close on SIGTERM/SIGINT before forcing exit (#23).
