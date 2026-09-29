@@ -11,7 +11,7 @@
  *   5. Routes, GraphQL, metrics.
  *   6. Graceful shutdown (issue #23): flip readiness, drain, close in order.
  */
-import Fastify from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
 import compress from '@fastify/compress';
@@ -53,6 +53,11 @@ import { collectConfigWarnings, logConfigWarnings } from './config/warnings';
 import { logger } from './utils/logger';
 import { registerRateLimiting } from './plugins/rateLimit';
 import { registerResponseOptimization } from './plugins/responseOptimization';
+import { registerSecurityPlugins } from './plugins/security';
+import { registerApiVersioning } from './plugins/apiVersion';
+import { globalErrorHandler, notFoundHandler } from './middleware/error-handler';
+import { registerGraphQL } from './graphql/plugin';
+import { createCreatorTierRuntime } from './domains/creators/tier.runtime';
 
 // Behind a reverse proxy, TRUST_PROXY makes request.ip the real client
 // address instead of the proxy's, so per-IP rate limits don't bucket every
@@ -71,7 +76,7 @@ const app = Fastify({
   logger: {
     level: config.LOG_LEVEL,
   },
-});
+}) as unknown as FastifyInstance;
 
 // Unsafe-but-valid settings (e.g. TRUST_PROXY=true) are reported together on
 // boot; see src/config/warnings.ts.
@@ -91,6 +96,7 @@ registerResponseOptimization(app);
 // duration metrics, slow-query logging, short-lived read cache and unbounded
 // read detection. The returned client is a regular PrismaClient.
 const { client: prisma } = createInstrumentedPrismaClient();
+const creatorTiers = createCreatorTierRuntime(prisma);
 
 // Response schemas are documentation-only; see config/serialization.ts.
 applyJsonSerializer(app);
