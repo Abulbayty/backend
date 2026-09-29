@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
     "db:migrate": "tsx src/db/run-migrations.ts --up",
     "db:migrate:dry-run": "tsx src/db/run-migrations.ts --dry-run",
@@ -73,5 +74,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }
