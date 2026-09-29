@@ -1,11 +1,19 @@
-import dotenv from 'dotenv';
-import { z } from 'zod';
+/**
+ * Back-compat shim (issue #60).
+ *
+ * The validated snapshot now lives in `src/config/loader.ts`; every existing
+ * `import { config } from '../config/env'` keeps working unchanged.
+ */
+import { getConfig } from './loader';
 
-dotenv.config();
+export const config = getConfig();
 
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().transform(Number).default('3000'),
+  HTTP2_ENABLED: z.string().transform((val) => val === 'true').default('false'),
+  RESPONSE_COMPRESSION_ENABLED: z.string().transform((val) => val !== 'false').default('true'),
+  RESPONSE_CACHE_CONTROL: z.string().default('private, no-cache'),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   // Max time (ms) to wait for in-flight requests to drain and resources to
   // close on SIGTERM/SIGINT before forcing exit (#23).
@@ -92,6 +100,7 @@ const EnvSchema = z.object({
   WALLET_NONCE_EXPIRY: z.string().transform(Number).default('600'),
   MIN_PAYOUT_AMOUNT: z.string().transform(Number).default('50'),
   FRONTEND_URL: z.string().default('http://localhost:3000'),
+  VERIFICATION_DOCUMENT_STORAGE_PATH: z.string().default('./private/verification-documents'),
   SENDGRID_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().email().optional(),
   // Reverse proxy trust (see docs/RATE_LIMITING.md). Controls how request.ip
@@ -122,8 +131,9 @@ const validateEnv = (): Environment => {
     console.error('Invalid environment variables:', env.error.format());
     process.exit(1);
   }
-
-  return env.data;
-};
-
-export const config = validateEnv();
+  const origins = raw
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  return origins.length > 0 ? origins : true;
+}
