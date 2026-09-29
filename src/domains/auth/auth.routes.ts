@@ -5,9 +5,13 @@ import {
   RegisterRequestSchema,
   LoginRequestSchema,
   RefreshTokenRequestSchema,
+  PasswordResetRequestSchema,
+  PasswordResetConfirmRequestSchema,
   RegisterRequest,
   LoginRequest,
   RefreshTokenRequest,
+  PasswordResetRequest,
+  PasswordResetConfirmRequest,
 } from './auth.types';
 import { formatSuccess, formatError } from '../../types/response';
 import { authMiddleware } from '../../middleware/auth';
@@ -48,7 +52,6 @@ function parseExpiryToMs(expiryStr: string): number {
       return value * 1000;
   }
 }
-
 
 export const registerAuthRoutes = (app: FastifyInstance, prisma: PrismaClient): void => {
   const authService = new AuthService(prisma);
@@ -188,6 +191,55 @@ export const registerAuthRoutes = (app: FastifyInstance, prisma: PrismaClient): 
         ...result,
         refreshToken: undefined, // Don't send refresh token in body, it's in cookie
       }));
+    }
+  );
+
+  app.post<{ Body: PasswordResetRequest }>(
+    '/api/v1/auth/password-reset',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['email'],
+          properties: { email: { type: 'string', format: 'email' } },
+        },
+        response: { 200: { description: 'Reset instructions are sent when the account exists' } },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = PasswordResetRequestSchema.parse(request.body);
+      const result = await authService.requestPasswordReset(body.email);
+      reply.send(formatSuccess(result));
+    }
+  );
+
+  app.post<{ Body: PasswordResetConfirmRequest }>(
+    '/api/v1/auth/password-reset/confirm',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['token', 'newPassword'],
+          properties: {
+            token: { type: 'string', minLength: 1 },
+            newPassword: {
+              type: 'string',
+              minLength: 8,
+              description: 'At least 8 characters with uppercase, lowercase, and number',
+            },
+          },
+        },
+        response: {
+          200: { description: 'Password reset completed' },
+          400: { description: 'Invalid, expired, or already used token' },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = PasswordResetConfirmRequestSchema.parse(request.body);
+      const result = await authService.confirmPasswordReset(body.token, body.newPassword);
+      reply.clearCookie('refreshToken', { path: '/' });
+      reply.send(formatSuccess(result));
     }
   );
 

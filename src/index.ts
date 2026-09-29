@@ -13,7 +13,10 @@
  */
 import Fastify from 'fastify';
 import { randomUUID } from 'node:crypto';
-import cookie from '@fastify/cookie';
+import cors from '@fastify/cors';
+import compress from '@fastify/compress';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { config } from './config/env';
 import { applyJsonSerializer } from './config/serialization';
 import { setServiceState } from './services/health.service';
@@ -49,10 +52,7 @@ import { parseTrustProxy } from './config/rate-limit';
 import { collectConfigWarnings, logConfigWarnings } from './config/warnings';
 import { logger } from './utils/logger';
 import { registerRateLimiting } from './plugins/rateLimit';
-import { registerSecurityPlugins } from './plugins/security';
-import { registerApiVersioning } from './plugins/apiVersion';
-import { globalErrorHandler, notFoundHandler } from './middleware/error-handler';
-import { registerGraphQL } from './graphql/plugin';
+import { registerResponseOptimization } from './plugins/responseOptimization';
 
 // Behind a reverse proxy, TRUST_PROXY makes request.ip the real client
 // address instead of the proxy's, so per-IP rate limits don't bucket every
@@ -60,6 +60,7 @@ import { registerGraphQL } from './graphql/plugin';
 const trustProxy = parseTrustProxy(config.TRUST_PROXY);
 
 const app = Fastify({
+  http2: config.HTTP2_ENABLED,
   trustProxy,
   genReqId: (request) => {
     const incoming = request.headers['x-request-id'];
@@ -79,6 +80,12 @@ logConfigWarnings(logger, collectConfigWarnings());
 // Rate limiting (#1) classifies routes in an onRoute hook, so it must be
 // registered before any route is added.
 await registerRateLimiting(app);
+await app.register(compress, {
+  global: config.RESPONSE_COMPRESSION_ENABLED,
+  encodings: ['br', 'gzip', 'deflate'],
+  threshold: 1024,
+});
+registerResponseOptimization(app);
 
 // Initialize Prisma with query performance instrumentation (issue #12):
 // duration metrics, slow-query logging, short-lived read cache and unbounded
