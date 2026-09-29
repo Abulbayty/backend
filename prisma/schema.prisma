@@ -16,6 +16,7 @@ model User {
   avatar    String?
   role      String   @default("fan")
   verified  Boolean  @default(false)
+  authVersion Int    @default(0)
   notificationPreferences Json @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -93,6 +94,8 @@ model Creator {
   avatar      String?
 
   verified Boolean @default(false)
+  verifiedAt DateTime?
+  verifiedUntil DateTime?
   isPublic Boolean @default(true)
 
   totalEarnings  Float @default(0)
@@ -116,6 +119,55 @@ model Creator {
   @@index([isPublic, verified, totalEarnings(sort: Desc)], map: "idx_creator_public_verified_earnings")
   // Global top-earners ranking (no filters).
   @@index([totalEarnings(sort: Desc)], map: "idx_creator_totalEarnings")
+}
+
+model CreatorVerificationRequest {
+  id           String   @id @default(cuid())
+  creatorId    String
+  creator      Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  status       String   @default("submitted") // submitted | approved | rejected | expired
+  statement    String?
+  reviewerId   String?
+  reviewedAt   DateTime?
+  reviewReason String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  documents    CreatorVerificationDocument[]
+  events       CreatorVerificationEvent[]
+
+  @@index([status, createdAt])
+  @@index([creatorId, createdAt])
+  @@index([expiresAt])
+}
+
+model CreatorVerificationDocument {
+  id          String   @id @default(cuid())
+  requestId   String
+  request     CreatorVerificationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  storageKey  String   @unique
+  filename    String
+  contentType String
+  size        Int
+  createdAt   DateTime @default(now())
+
+  @@index([requestId])
+}
+
+model CreatorVerificationEvent {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  requestId String?
+  request   CreatorVerificationRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  actorId   String?
+  action    String // submitted | approved | rejected | expired | revoked
+  reason    String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([creatorId, createdAt])
+  @@index([requestId, createdAt])
 }
 
 model Wallet {
@@ -208,6 +260,22 @@ model VerificationToken {
 
   @@index([email])
   @@index([token])
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  // SHA-256 digest of the one-time secret; the raw token is only emailed.
+  token     String   @unique
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
   @@index([expiresAt])
   @@index([userId])
 }

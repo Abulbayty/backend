@@ -92,6 +92,7 @@ const EnvSchema = z.object({
   WALLET_NONCE_EXPIRY: z.string().transform(Number).default('600'),
   MIN_PAYOUT_AMOUNT: z.string().transform(Number).default('50'),
   FRONTEND_URL: z.string().default('http://localhost:3000'),
+  VERIFICATION_DOCUMENT_STORAGE_PATH: z.string().default('./private/verification-documents'),
   SENDGRID_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().email().optional(),
   // Reverse proxy trust (see docs/RATE_LIMITING.md). Controls how request.ip
