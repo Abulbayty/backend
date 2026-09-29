@@ -13,10 +13,8 @@
  */
 import Fastify from 'fastify';
 import { randomUUID } from 'node:crypto';
-import cors from '@fastify/cors';
 import compress from '@fastify/compress';
-import swagger from '@fastify/swagger';
-import swaggerUi from '@fastify/swagger-ui';
+import cookie from '@fastify/cookie';
 import { config } from './config/env';
 import { applyJsonSerializer } from './config/serialization';
 import { setServiceState } from './services/health.service';
@@ -44,6 +42,8 @@ import { registerNotificationRoutes } from './domains/notifications/notification
 import { registerMetricsRoute } from './routes/metrics.routes';
 import { registerQueryPerformanceRoutes } from './routes/query-performance.routes';
 import { registerJobRoutes } from './domains/jobs/jobs.routes';
+import { registerAssetRoutes } from './domains/assets/asset.routes';
+import { registerApm } from './lib/apm';
 import { closeQueues } from './lib/queue';
 import redisPool, { startRedisHealthCheck } from './lib/redisPool';
 import { emailNotificationWorker } from './lib/workers/email-notification.worker';
@@ -53,13 +53,17 @@ import { collectConfigWarnings, logConfigWarnings } from './config/warnings';
 import { logger } from './utils/logger';
 import { registerRateLimiting } from './plugins/rateLimit';
 import { registerResponseOptimization } from './plugins/responseOptimization';
+import { registerSecurityPlugins } from './plugins/security';
+import { registerApiVersioning } from './plugins/apiVersion';
+import { registerGraphQL } from './graphql/plugin';
+import { globalErrorHandler, notFoundHandler } from './middleware/error-handler';
 
 // Behind a reverse proxy, TRUST_PROXY makes request.ip the real client
 // address instead of the proxy's, so per-IP rate limits don't bucket every
 // user together. See docs/RATE_LIMITING.md.
 const trustProxy = parseTrustProxy(config.TRUST_PROXY);
 
-const app = Fastify({
+const app: any = Fastify({
   http2: config.HTTP2_ENABLED,
   trustProxy,
   genReqId: (request) => {
@@ -80,6 +84,7 @@ logConfigWarnings(logger, collectConfigWarnings());
 // Rate limiting (#1) classifies routes in an onRoute hook, so it must be
 // registered before any route is added.
 await registerRateLimiting(app);
+registerApm(app);
 await app.register(compress, {
   global: config.RESPONSE_COMPRESSION_ENABLED,
   encodings: ['br', 'gzip', 'deflate'],
@@ -217,7 +222,6 @@ const shutdown = async (signal: 'SIGTERM' | 'SIGINT'): Promise<void> => {
     // sequence, including this step).
     await app.close();
     // Flush buffered creator usage counters before the database goes away.
-    await creatorTiers.close();
     await emailNotificationWorker.close();
     await closeQueues();
     await closeDatabase();
@@ -267,6 +271,7 @@ const bootstrap = async (): Promise<void> => {
   registerMetricsRoute(app, prisma);
   registerQueryPerformanceRoutes(app);
   registerJobRoutes(app);
+  registerAssetRoutes(app, prisma);
 
   await registerGraphQL(app, prisma);
 };
