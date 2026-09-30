@@ -288,18 +288,37 @@ model Webhook {
   url    String
   events String[] // tip.created, tip.confirmed, tip.failed, payout.completed
   secret String // HMAC secret for signature verification
+  previousSecret String? // Previous secret during rotation period
+  secretRotatedAt DateTime? // When secret was last rotated
   active Boolean  @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   webhookEvents WebhookEvent[]
+  webhookNonces WebhookNonce[]
 
   @@index([creatorId])
   // Webhook listing per creator, newest first.
   @@index([creatorId, createdAt(sort: Desc)], map: "idx_webhook_creator_createdAt")
   // Delivery worker only fans out to active endpoints.
   @@index([creatorId, active, createdAt(sort: Desc)], map: "idx_webhook_creator_active_createdAt")
+}
+
+model WebhookNonce {
+  id        String   @id @default(cuid())
+  webhookId String
+  webhook   Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  
+  nonce     String   @unique // The nonce value from webhook request
+  timestamp BigInt   // Unix timestamp of the webhook request
+  expiresAt DateTime // When this nonce can be cleaned up
+  
+  createdAt DateTime @default(now())
+
+  @@index([webhookId, timestamp])
+  @@index([expiresAt]) // For cleanup of expired nonces
+  @@index([nonce]) // Fast lookup for replay detection
 }
 
 model WebhookEvent {
