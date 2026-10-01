@@ -39,16 +39,18 @@ import { registerWebhookRoutes } from './domains/webhooks/webhook.routes';
 import { registerIncomingWebhookRoutes } from './domains/webhooks/webhook-incoming.routes';
 import { registerAnalyticsRoutes } from './domains/analytics/analytics.routes';
 import { registerAdminRoutes } from './domains/admin/admin.routes';
+import { registerModerationRoutes } from './domains/moderation/moderation.routes';
 import { registerRoleRoutes } from './domains/roles/role.routes';
 import { registerNotificationRoutes } from './domains/notifications/notification.routes';
 import { registerMetricsRoute } from './routes/metrics.routes';
+import { registerReportRoutes } from './domains/reports/report.routes';
 import { registerPrivacyRoutes } from './domains/privacy/privacy.routes';
 import { registerQueryPerformanceRoutes } from './routes/query-performance.routes';
 import { registerJobRoutes } from './domains/jobs/jobs.routes';
 import { registerAssetRoutes } from './domains/assets/asset.routes';
 import { registerApm } from './lib/apm';
 import { closeQueues } from './lib/queue';
-import redisPool, { startRedisHealthCheck } from './lib/redisPool';
+import redisPool, { closeRedisPool, startRedisHealthCheck } from './lib/redisPool';
 import { emailNotificationWorker } from './lib/workers/email-notification.worker';
 import { initTokenBlacklist, closeTokenBlacklist } from './utils/token-blacklist';
 import { parseTrustProxy } from './config/rate-limit';
@@ -61,6 +63,9 @@ import { registerSecurityPlugins } from './plugins/security';
 import { registerApiVersioning } from './plugins/apiVersion';
 import { globalErrorHandler, notFoundHandler } from './middleware/error-handler';
 import { registerGraphQL } from './graphql/plugin';
+import { createCreatorTierRuntime } from './domains/creators/tier.runtime';
+import { registerRequestLogging } from './plugins/requestLogging';
+import { resolveRequestId } from './lib/requestContext';
 import { startCacheInvalidationSubscriber, stopCacheInvalidationSubscriber } from './lib/cache/invalidation';
 
 // Behind a reverse proxy, TRUST_PROXY makes request.ip the real client
@@ -72,14 +77,16 @@ const app = Fastify({
   trustProxy,
   genReqId: (request) => {
     const incoming = request.headers['x-request-id'];
-    return typeof incoming === 'string' && /^[A-Za-z0-9._:-]{1,128}$/.test(incoming)
-      ? incoming
-      : randomUUID();
+    return resolveRequestId(incoming, randomUUID);
   },
   logger: {
     level: config.LOG_LEVEL,
   },
 }) as unknown as FastifyInstance;
+
+// Register before all application hooks/routes so context and response IDs
+// cover normal responses, validation failures, and unknown routes.
+registerRequestLogging(app);
 
 // Unsafe-but-valid settings (e.g. TRUST_PROXY=true) are reported together on
 // boot; see src/config/warnings.ts.
@@ -102,6 +109,7 @@ registerResponseOptimization(app);
 // duration metrics, slow-query logging, short-lived read cache and unbounded
 // read detection. The returned client is a regular PrismaClient.
 const { client: prisma } = createInstrumentedPrismaClient();
+const creatorTiers = createCreatorTierRuntime(prisma);
 
 // Response schemas are documentation-only; see config/serialization.ts.
 applyJsonSerializer(app);
@@ -124,7 +132,9 @@ registerAnalyticsRoutes(app, prisma);
 registerNotificationRoutes(app, prisma);
 registerAdminRoutes(app, prisma);
 registerRoleRoutes(app, prisma);
+registerModerationRoutes(app, prisma);
 registerMetricsRoute(app, prisma);
+registerReportRoutes(app, prisma);
 registerPrivacyRoutes(app, prisma);
 registerQueryPerformanceRoutes(app, prisma);
 registerJobRoutes(app, prisma);
@@ -236,6 +246,7 @@ const shutdown = async (signal: 'SIGTERM' | 'SIGINT'): Promise<void> => {
     await stopCacheInvalidationSubscriber();
     await emailNotificationWorker.close();
     await closeQueues();
+    await closeRedisPool();
     await closeDatabase();
     await prisma.$disconnect();
     closeTokenBlacklist();
@@ -282,7 +293,8 @@ const bootstrap = async (): Promise<void> => {
   registerIncomingWebhookRoutes(app, prisma);
   registerAnalyticsRoutes(app, prisma);
   registerAdminRoutes(app, prisma);
-  registerRoleRoutes(app, prisma);
+registerRoleRoutes(app, prisma);
+registerModerationRoutes(app, prisma);
   registerMetricsRoute(app, prisma);
   registerQueryPerformanceRoutes(app);
   registerJobRoutes(app);

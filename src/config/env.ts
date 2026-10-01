@@ -1,6 +1,10 @@
 /**
- * Back-compat shim for modules that historically imported `config` from this
- * module. The validated snapshot and schema live in loader.ts/schema.ts.
+ * Backwards-compatible configuration entry point.
+ *
+ * The canonical schema and layered loader live in `schema.ts` and `loader.ts`.
+ * Older modules import from `config/env`, so this module intentionally re-exports
+ * the same validated snapshot and the small compatibility helper used by the
+ * security plugin.
  */
 import { getConfig } from './loader';
 

@@ -287,27 +287,24 @@ export const EnvSchemaObject = z
     SENDGRID_API_KEY: optionalString,
     EMAIL_FROM: optionalEmail,
 
-  // ── HTTP surface ───────────────────────────────────────────────────────
-  // Reverse proxy trust: false | number of hops | comma separated CIDR list.
-  TRUST_PROXY: z.string().default('false'),
-  CORS_ORIGINS: optionalString,
-  CORS_CREDENTIALS: bool(true),
-  CORS_MAX_AGE: int(600, { min: 0, max: 86_400 }),
+    // ── HTTP surface ───────────────────────────────────────────────────────
+    RESPONSE_CACHE_CONTROL: z.string().default('private, no-cache'),
+    // Reverse proxy trust: false | number of hops | comma separated CIDR list.
+    TRUST_PROXY: z.string().default('false'),
+    CORS_ORIGINS: optionalString,
+    CORS_CREDENTIALS: bool(true),
+    CORS_MAX_AGE: int(600, { min: 0, max: 86_400 }),
 
-  // ── Rate limiting (see src/config/rate-limit.ts) ───────────────────────
-  RATE_LIMIT_ENABLED: bool(true),
-  RATE_LIMIT_STORE: z.enum(['memory', 'redis']).default('memory'),
-  RATE_LIMIT_PUBLIC_MAX: int(100, { min: 1, max: 100_000 }),
-  RATE_LIMIT_PUBLIC_WINDOW_MS: int(60_000, { min: 1_000, max: 3_600_000 }),
-  RATE_LIMIT_AUTHENTICATED_MAX: int(300, { min: 1, max: 100_000 }),
-  RATE_LIMIT_AUTHENTICATED_WINDOW_MS: int(60_000, { min: 1_000, max: 3_600_000 }),
-  RATE_LIMIT_SENSITIVE_MAX: int(10, { min: 1, max: 1_000 }),
-  RATE_LIMIT_SENSITIVE_WINDOW_MS: int(60_000, { min: 1_000, max: 3_600_000 }),
+    // ── Rate limiting (see src/config/rate-limit.ts) ───────────────────────
+    RATE_LIMIT_ENABLED: bool(true),
+    RATE_LIMIT_STORE: z.enum(['memory', 'redis']).default('memory'),
+    RATE_LIMIT_PUBLIC_MAX: int(100, { min: 1, max: 100_000 }),
+    RATE_LIMIT_PUBLIC_WINDOW_MS: int(60_000, { min: 1_000, max: 3_600_000 }),
+    RATE_LIMIT_AUTHENTICATED_MAX: int(300, { min: 1, max: 100_000 }),
+    RATE_LIMIT_AUTHENTICATED_WINDOW_MS: int(60_000, { min: 1_000, max: 3_600_000 }),
+    RATE_LIMIT_SENSITIVE_MAX: int(10, { min: 1, max: 1_000 }),
+    RATE_LIMIT_SENSITIVE_WINDOW_MS: int(60_000, { min: 1_000, max: 3_600_000 }),
 
-  // ── GraphQL ────────────────────────────────────────────────────────────
-  GRAPHQL_ENABLED: bool(true),
-  GRAPHQL_MAX_DEPTH: int(10, { min: 1, max: 100 }),
-  GRAPHQL_MAX_COMPLEXITY: int(1_000, { min: 1, max: 100_000 }),
     // ── API versioning ─────────────────────────────────────────────────────
     SUPPORTED_API_VERSIONS: z.string().default('1,2'),
     API_V1_SUNSET_DATE: z.string().optional(),
@@ -386,6 +383,7 @@ export type EnvConfig = z.infer<typeof EnvSchemaObject>;
 /** Keys that hold credentials and must be redacted in logs/audit entries. */
 export const SECRET_KEYS: ReadonlySet<string> = new Set([
   'JWT_SECRET',
+  'INTERNAL_SERVICE_API_KEYS',
   'STELLAR_SERVER_SECRET_KEY',
   'STRIPE_SECRET_KEY',
   'STRIPE_WEBHOOK_SECRET',

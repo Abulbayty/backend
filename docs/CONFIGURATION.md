@@ -225,12 +225,14 @@ Policies and route classification live in `src/config/rate-limit.ts`
 | `RATE_LIMIT_AUTHENTICATED_WINDOW_MS` | int  | `60000`  | 1000–3600000     | no     | ✅         | Authenticated route window                                         |
 | `RATE_LIMIT_SENSITIVE_MAX`           | int  | `10`     | 1–1000           | no     | ✅         | Max requests per sensitive route (login, tips, payouts) per window |
 | `RATE_LIMIT_SENSITIVE_WINDOW_MS`     | int  | `60000`  | 1000–3600000     | no     | ✅         | Sensitive route window                                             |
+| `RATE_LIMIT_INTERNAL_MAX`            | int  | `1000`   | 1–1000000        | no     | ✅         | Internal service route limit per service/key bucket                |
+| `RATE_LIMIT_INTERNAL_WINDOW_MS`      | int  | `60000`  | 1000–3600000     | no     | ✅         | Internal service route window                                      |
 
 ## GraphQL
 
 | Variable                 | Type | Default | Range/Values | Secret | Hot reload | Description                      |
 | ------------------------ | ---- | ------- | ------------ | ------ | ---------- | -------------------------------- |
-| `GRAPHQL_ENABLED`        | bool | `true`  | —            | no     | ✖         | Register the `/graphql` endpoint |
+| `GRAPHQL_ENABLED`        | bool | `true`  | —            | no     | ✖          | Register the `/graphql` endpoint |
 | `GRAPHQL_MAX_DEPTH`      | int  | `10`    | 1–100        | no     | ✅         | Query depth limit                |
 | `GRAPHQL_MAX_COMPLEXITY` | int  | `1000`  | 1–100000     | no     | ✅         | Query complexity limit           |
 
