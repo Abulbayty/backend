@@ -11,14 +11,19 @@ import { getConfig } from './loader';
 /** Backwards-compatible runtime config access for legacy modules. */
 export const config = getConfig() as any;
 
-/** Resolve the configured comma-separated CORS allow-list. */
-export function getCorsOrigins(): string[] | true {
-  const raw = config.CORS_ORIGINS;
-  if (!raw || raw.trim() === '') return true;
-  return raw
+/**
+ * Convert the comma-separated CORS allowlist into the shape Fastify expects.
+ * An omitted or wildcard value intentionally permits any origin.
+ */
+export function getCorsOrigins(): true | string[] {
+  const raw = config.CORS_ORIGINS?.trim();
+  if (!raw || raw === '*') return true;
+
+  const origins = raw
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+
 /** Resolve CORS origins from the centralized configuration. */
 export function getCorsOrigins(): string[] | true {
   const raw = config.CORS_ORIGINS;

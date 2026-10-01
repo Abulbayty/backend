@@ -54,34 +54,51 @@ DATABASE_URL={{ DATABASE_URL }}    # or an injected secrets provider
 
 ## Server
 
-| Variable              | Type   | Default       | Range/Values                                  | Secret | Hot reload | Description                                                |
-| --------------------- | ------ | ------------- | --------------------------------------------- | ------ | ---------- | ---------------------------------------------------------- |
-| `NODE_ENV`            | enum   | `development` | `development` `staging` `production` `test`   | no     | ✖          | Selects the environment file and enables production guards |
-| `PORT`                | int    | `3000`        | 1–65535                                       | no     | ✖          | HTTP listen port                                           |
-| `LOG_LEVEL`           | enum   | `info`        | `trace` `debug` `info` `warn` `error` `fatal` | no     | ✅         | Pino log level                                             |
-| `SHUTDOWN_TIMEOUT_MS` | int    | `30000`       | 1000–300000                                   | no     | ✅         | Graceful-shutdown drain window (#23)                       |
-| `API_HOST`            | string | —             | hostname                                      | no     | ✅         | Swagger server host; empty = localhost                     |
+| Variable                       | Type   | Default             | Range/Values                                  | Secret | Hot reload | Description                                                |
+| ------------------------------ | ------ | ------------------- | --------------------------------------------- | ------ | ---------- | ---------------------------------------------------------- |
+| `NODE_ENV`                     | enum   | `development`       | `development` `staging` `production` `test`   | no     | ✖         | Selects the environment file and enables production guards |
+| `PORT`                         | int    | `3000`              | 1–65535                                       | no     | ✖         | HTTP listen port                                           |
+| `HTTP2_ENABLED`                | bool   | `false`             | —                                             | no     | ✖         | Enable HTTP/2 listener                                     |
+| `RESPONSE_COMPRESSION_ENABLED` | bool   | `true`              | —                                             | no     | ✅         | Enable response compression                                |
+| `RESPONSE_CACHE_CONTROL`       | string | `private, no-cache` | —                                             | no     | ✅         | Default cache-control header                               |
+| `LOG_LEVEL`                    | enum   | `info`              | `trace` `debug` `info` `warn` `error` `fatal` | no     | ✅         | Pino log level                                             |
+| `SHUTDOWN_TIMEOUT_MS`          | int    | `30000`             | 1000–300000                                   | no     | ✅         | Graceful-shutdown drain window (#23)                       |
+| `API_HOST`                     | string | —                   | hostname                                      | no     | ✅         | Swagger server host; empty = localhost                     |
 
 ## Database
 
-| Variable                       | Type   | Default   | Range/Values                 | Secret  | Hot reload | Description                                                    |
-| ------------------------------ | ------ | --------- | ---------------------------- | ------- | ---------- | -------------------------------------------------------------- |
-| `DATABASE_URL`                 | string | —         | PostgreSQL connection string | **yes** | ✖          | Postgres connection string; **required in production/staging** |
-| `DB_POOL_MIN`                  | int    | `2`       | 1–100                        | no      | ✖          | Minimum pool connections                                       |
-| `DB_POOL_MAX`                  | int    | `20`      | 1–100 (≥ `DB_POOL_MIN`)      | no      | ✖          | Maximum pool connections                                       |
-| `DB_CONNECTION_TIMEOUT_MS`     | int    | `5000`    | 100–60000                    | no      | ✅         | Connect timeout                                                |
-| `DB_IDLE_TIMEOUT_MS`           | int    | `30000`   | 0–300000                     | no      | ✅         | Idle client teardown                                           |
-| `DB_MAX_LIFETIME_MS`           | int    | `1800000` | 1000–3600000                 | no      | ✅         | Max connection lifetime                                        |
-| `DB_STATEMENT_TIMEOUT_MS`      | int    | `10000`   | 0–600000                     | no      | ✅         | Per-statement server timeout                                   |
-| `DB_SLOW_QUERY_THRESHOLD_MS`   | int    | `200`     | 1–60000                      | no      | ✅         | Slow-query log threshold (#12)                                 |
-| `DB_LOG_QUERIES`               | bool   | `false`   | —                            | no      | ✅         | Log every SQL statement (development only)                     |
-| `DB_QUERY_CACHE_ENABLED`       | bool   | `true`    | —                            | no      | ✅         | Read-query result cache (#12)                                  |
-| `DB_QUERY_CACHE_TTL_MS`        | int    | `60000`   | 1000–300000                  | no      | ✅         | Default cache TTL                                              |
-| `DB_QUERY_CACHE_MAX_TTL_MS`    | int    | `300000`  | 1000–600000                  | no      | ✅         | Hard TTL upper bound                                           |
-| `DB_QUERY_CACHE_MAX_ENTRIES`   | int    | `1000`    | 10–100000                    | no      | ✅         | Cache size limit                                               |
-| `DB_LEAK_DETECTION_TIMEOUT_MS` | int    | `30000`   | 1000–300000                  | no      | ✅         | Connection-leak detector                                       |
-| `DB_CIRCUIT_BREAKER_FAILURES`  | int    | `5`       | 1–100                        | no      | ✅         | DB breaker trips after N failures                              |
-| `DB_CIRCUIT_BREAKER_RESET_MS`  | int    | `10000`   | 100–600000                   | no      | ✅         | DB breaker reset timeout                                       |
+| Variable                             | Type   | Default                               | Range/Values                                                   | Secret  | Hot reload | Description                                                            |
+| ------------------------------------ | ------ | ------------------------------------- | -------------------------------------------------------------- | ------- | ---------- | ---------------------------------------------------------------------- |
+| `DATABASE_URL`                       | string | —                                     | PostgreSQL connection string                                   | **yes** | ✖         | Postgres connection string; **required in production/staging**         |
+| `DB_POOL_MIN`                        | int    | `2`                                   | 1–100                                                          | no      | ✖         | Minimum pool connections                                               |
+| `DB_POOL_MAX`                        | int    | `20`                                  | 1–100 (≥ `DB_POOL_MIN`)                                        | no      | ✖         | Maximum pool connections                                               |
+| `DB_CONNECTION_TIMEOUT_MS`           | int    | `5000`                                | 100–60000                                                      | no      | ✅         | Connect timeout                                                        |
+| `DB_IDLE_TIMEOUT_MS`                 | int    | `30000`                               | 0–300000                                                       | no      | ✅         | Idle client teardown                                                   |
+| `DB_MAX_LIFETIME_MS`                 | int    | `1800000`                             | 1000–3600000                                                   | no      | ✅         | Max connection lifetime                                                |
+| `DB_STATEMENT_TIMEOUT_MS`            | int    | `10000`                               | 0–600000                                                       | no      | ✅         | Per-statement server timeout                                           |
+| `DB_SLOW_QUERY_THRESHOLD_MS`         | int    | `200`                                 | 1–60000                                                        | no      | ✅         | Slow-query log threshold (#12)                                         |
+| `DB_LOG_QUERIES`                     | bool   | `false`                               | —                                                              | no      | ✅         | Log every SQL statement (development only)                             |
+| `DB_QUERY_CACHE_ENABLED`             | bool   | `true`                                | —                                                              | no      | ✅         | Read-query result cache (#12)                                          |
+| `DB_QUERY_CACHE_TTL_MS`              | int    | `60000`                               | 1000–300000                                                    | no      | ✅         | Default cache TTL                                                      |
+| `DB_QUERY_CACHE_MAX_TTL_MS`          | int    | `300000`                              | 1000–600000                                                    | no      | ✅         | Hard TTL upper bound                                                   |
+| `DB_QUERY_CACHE_MAX_ENTRIES`         | int    | `1000`                                | 10–100000                                                      | no      | ✅         | Cache size limit                                                       |
+| `DB_LEAK_DETECTION_TIMEOUT_MS`       | int    | `30000`                               | 1000–300000                                                    | no      | ✅         | Connection-leak detector                                               |
+| `DB_CIRCUIT_BREAKER_FAILURES`        | int    | `5`                                   | 1–100                                                          | no      | ✅         | DB breaker trips after N failures                                      |
+| `DB_CIRCUIT_BREAKER_RESET_MS`        | int    | `10000`                               | 100–600000                                                     | no      | ✅         | DB breaker reset timeout                                               |
+| `DB_SSL_MODE`                        | enum   | `prefer`                              | `disable` `allow` `prefer` `require` `verify-ca` `verify-full` | no      | ✖         | PostgreSQL TLS mode; staging/production require certificate validation |
+| `DB_SSL_REJECT_UNAUTHORIZED`         | bool   | `true`                                | —                                                              | no      | ✖         | Reject invalid PostgreSQL certificates                                 |
+| `DB_SSL_CA`                          | string | —                                     | PEM text or mounted file path                                  | **yes** | ✖         | PostgreSQL CA certificate                                              |
+| `DB_SSL_CERT`                        | string | —                                     | PEM text or mounted file path                                  | **yes** | ✖         | Optional client certificate                                            |
+| `DB_SSL_KEY`                         | string | —                                     | PEM text or mounted file path                                  | **yes** | ✖         | Optional client private key                                            |
+| `DB_SSL_SERVERNAME`                  | string | —                                     | TLS hostname                                                   | no      | ✖         | SNI/hostname used for certificate validation                           |
+| `BACKUP_VERIFICATION_ENABLED`        | bool   | `false`                               | —                                                              | no      | ✅         | Enable the isolated encrypted-backup restore check                     |
+| `BACKUP_VERIFICATION_CRON`           | string | `0 3 * * 0`                           | five-field cron                                                | no      | ✅         | Recommended weekly verification schedule                               |
+| `BACKUP_VERIFICATION_TIMEOUT_MS`     | int    | `300000`                              | 1000–3600000                                                   | no      | ✅         | Overall verification timeout                                           |
+| `BACKUP_VERIFICATION_MAX_RESTORE_MS` | int    | `120000`                              | 1000–3600000                                                   | no      | ✅         | Restore-time SLO                                                       |
+| `BACKUP_DIRECTORY`                   | string | `./private/backups`                   | directory                                                      | no      | ✖         | Primary encrypted-backup target                                        |
+| `BACKUP_SECONDARY_DIRECTORY`         | string | `./private/backups-secondary`         | directory                                                      | no      | ✖         | Independent secondary backup target                                    |
+| `BACKUP_ENCRYPTION_KEY`              | string | —                                     | 32-byte hex or base64                                          | **yes** | ✖         | AES-256-GCM backup key                                                 |
+| `BACKUP_VERIFICATION_HISTORY_PATH`   | string | `./private/backup-verification.jsonl` | file path                                                      | no      | ✅         | Append-only verification history                                       |
 
 ## Circuit breakers (external services)
 
@@ -103,11 +120,11 @@ See `src/lib/circuit-breaker/` (issue #22).
 
 | Variable                        | Type   | Default                  | Range/Values               | Secret  | Hot reload | Description                                                                         |
 | ------------------------------- | ------ | ------------------------ | -------------------------- | ------- | ---------- | ----------------------------------------------------------------------------------- |
-| `REDIS_URL`                     | string | `redis://localhost:6379` | URL                        | no      | ✖          | Redis connection for pools, rate limiting, queues                                   |
-| `REDIS_HOST`                    | string | —                        | hostname                   | no      | ✖          | Alternative to URL (used by `cacheConfig`)                                          |
-| `REDIS_PORT`                    | int    | —                        | 1–65535                    | no      | ✖          | Alternative to URL (used by `cacheConfig`)                                          |
-| `REDIS_PASSWORD`                | string | —                        | —                          | **yes** | ✖          | Alternative to URL (used by `cacheConfig`)                                          |
-| `REDIS_DB`                      | int    | —                        | 0–15                       | no      | ✖          | Logical database index (used by `cacheConfig`)                                      |
+| `REDIS_URL`                     | string | `redis://localhost:6379` | URL                        | no      | ✖         | Redis connection for pools, rate limiting, queues                                   |
+| `REDIS_HOST`                    | string | —                        | hostname                   | no      | ✖         | Alternative to URL (used by `cacheConfig`)                                          |
+| `REDIS_PORT`                    | int    | —                        | 1–65535                    | no      | ✖         | Alternative to URL (used by `cacheConfig`)                                          |
+| `REDIS_PASSWORD`                | string | —                        | —                          | **yes** | ✖         | Alternative to URL (used by `cacheConfig`)                                          |
+| `REDIS_DB`                      | int    | —                        | 0–15                       | no      | ✖         | Logical database index (used by `cacheConfig`)                                      |
 | `REDIS_POOL_MIN`                | int    | `5`                      | 1–100                      | no      | ✅         | Connection pool minimum                                                             |
 | `REDIS_POOL_MAX`                | int    | `20`                     | 1–200 (≥ `REDIS_POOL_MIN`) | no      | ✅         | Connection pool maximum                                                             |
 | `REDIS_POOL_IDLE_TIMEOUT_MS`    | int    | `300000`                 | 0–3600000                  | no      | ✅         | Idle connection teardown                                                            |
@@ -116,13 +133,15 @@ See `src/lib/circuit-breaker/` (issue #22).
 | `CACHE_FALLBACK_MEMORY_SIZE`    | int    | `1000`                   | 1–100000                   | no      | ✅         | In-memory LRU fallback size when Redis is down                                      |
 | `CACHE_WARMUP_ENABLED`          | bool   | `false`                  | —                          | no      | ✅         | Warm frequently-read data on boot                                                   |
 | `CACHE_METRICS_ENABLED`         | bool   | `false`                  | —                          | no      | ✅         | Expose detailed cache metrics                                                       |
+| `WARMUP_CACHE`                  | bool   | `false`                  | —                          | no      | ✅         | Legacy alias for cache warmup                                                       |
+| `ENABLE_CACHE_METRICS`          | bool   | `false`                  | —                          | no      | ✅         | Legacy alias for cache metrics                                                      |
 
 ## Background jobs
 
 | Variable               | Type | Default | Range/Values | Secret | Hot reload | Description                                                                              |
 | ---------------------- | ---- | ------- | ------------ | ------ | ---------- | ---------------------------------------------------------------------------------------- |
-| `JOBS_WORKERS_ENABLED` | bool | `false` | —            | no     | ✖          | Run the BullMQ worker pool inside the API process (prefer a dedicated worker deployment) |
-| `ENABLE_WORKERS`       | bool | `false` | —            | no     | ✖          | Legacy alias for `JOBS_WORKERS_ENABLED`                                                  |
+| `JOBS_WORKERS_ENABLED` | bool | `false` | —            | no     | ✖         | Run the BullMQ worker pool inside the API process (prefer a dedicated worker deployment) |
+| `ENABLE_WORKERS`       | bool | `false` | —            | no     | ✖         | Legacy alias for `JOBS_WORKERS_ENABLED`                                                  |
 | `JOBS_CONCURRENCY`     | int  | `5`     | 1–64         | no     | ✅         | Concurrency for the generic jobs layer                                                   |
 | `JOB_DEFAULT_ATTEMPTS` | int  | `3`     | 1–20         | no     | ✅         | Default attempts before the DLQ                                                          |
 | `JOB_BACKOFF_MS`       | int  | `1000`  | 1–600000     | no     | ✅         | Base backoff delay                                                                       |
@@ -132,25 +151,9 @@ See `src/lib/circuit-breaker/` (issue #22).
 
 | Variable                 | Type     | Default         | Range/Values                                            | Secret  | Hot reload | Description            |
 | ------------------------ | -------- | --------------- | ------------------------------------------------------- | ------- | ---------- | ---------------------- |
-| `JWT_SECRET`             | string   | dev placeholder | ≥ 32 chars in production/staging (placeholder rejected) | **yes** | ✖          | Token signing secret   |
-| `JWT_EXPIRES_IN`         | duration | `15m`           | `<n><s\|m\|h\|d>`                                       | no      | ✖          | Access-token lifetime  |
-| `JWT_REFRESH_EXPIRES_IN` | duration | `7d`            | `<n><s\|m\|h\|d>`                                       | no      | ✖          | Refresh-token lifetime |
-
-## Internal service authentication
-
-Internal service credentials are independent of user JWT authentication. Protect internal routes with the middleware in `src/middleware/service-auth.ts`. `INTERNAL_SERVICE_API_KEYS` is a JSON array and is redacted by configuration audit logging.
-
-| Variable                             | Type        | Default | Range/Values                                                     | Secret  | Hot reload | Description                                                                      |
-| ------------------------------------ | ----------- | ------- | ---------------------------------------------------------------- | ------- | ---------- | -------------------------------------------------------------------------------- |
-| `INTERNAL_SERVICE_AUTH_ENABLED`      | bool        | `false` | —                                                                | no      | ✅         | Master switch; disabled or malformed credentials fail closed                     |
-| `INTERNAL_SERVICE_API_KEYS`          | JSON string | —       | Array of service records with current and optional previous keys | **yes** | ✅         | API keys, service identity, scopes/roles, expiry and rotation overlap            |
-| `INTERNAL_SERVICE_MTLS_ENABLED`      | bool        | `false` | —                                                                | no      | ✅         | Require an authorized TLS socket peer certificate; forwarded headers are ignored |
-| `INTERNAL_SERVICE_MTLS_FINGERPRINTS` | string      | —       | Comma-separated SHA-256 fingerprints                             | no      | ✅         | Optional certificate fingerprint allowlist                                       |
-| `INTERNAL_SERVICE_MTLS_SUBJECTS`     | string      | —       | Comma-separated certificate CNs                                  | no      | ✅         | Optional certificate subject CN allowlist                                        |
-
-Rotate service keys at least quarterly: deploy the new key, retain the old key only in `previousKeys` with a short explicit `expiresAt` overlap, update all callers, then remove the previous key. Store credentials in a secrets manager or injected environment, never source control.
-
-When TLS terminates at a proxy, the proxy must validate the client certificate and use a private authenticated hop to the API. The application never trusts `X-Client-Cert` or similar headers; use TLS passthrough/equivalent if the API must inspect the verified Node TLS socket.
+| `JWT_SECRET`             | string   | dev placeholder | ≥ 32 chars in production/staging (placeholder rejected) | **yes** | ✖         | Token signing secret   |
+| `JWT_EXPIRES_IN`         | duration | `15m`           | `<n><s\|m\|h\|d>`                                       | no      | ✖         | Access-token lifetime  |
+| `JWT_REFRESH_EXPIRES_IN` | duration | `7d`            | `<n><s\|m\|h\|d>`                                       | no      | ✖         | Refresh-token lifetime |
 
 ## Error tracking
 
@@ -165,20 +168,20 @@ When TLS terminates at a proxy, the proxy must validate the client certificate a
 
 | Variable                     | Type   | Default                               | Range/Values                     | Secret  | Hot reload | Description                                                                              |
 | ---------------------------- | ------ | ------------------------------------- | -------------------------------- | ------- | ---------- | ---------------------------------------------------------------------------------------- |
-| `STELLAR_NETWORK`            | enum   | `testnet`                             | `testnet` `mainnet` `standalone` | no      | ✖          | Target network                                                                           |
-| `STELLAR_HORIZON_URL`        | string | `https://horizon-testnet.stellar.org` | URL                              | no      | ✖          | Horizon API base                                                                         |
+| `STELLAR_NETWORK`            | enum   | `testnet`                             | `testnet` `mainnet` `standalone` | no      | ✖         | Target network                                                                           |
+| `STELLAR_HORIZON_URL`        | string | `https://horizon-testnet.stellar.org` | URL                              | no      | ✖         | Horizon API base                                                                         |
 | `STELLAR_HORIZON_TIMEOUT_MS` | int    | `60000`                               | 1000–600000                      | no      | ✅         | Per-request timeout                                                                      |
-| `STELLAR_SERVER_SECRET_KEY`  | string | —                                     | Stellar secret key (S…)          | **yes** | ✖          | Server keypair for SEP-10 style wallet challenges; absent = wallet verification disabled |
-| `USDC_CONTRACT_ID`           | string | —                                     | Contract ID                      | no      | ✖          | Soroban USDC contract                                                                    |
-| `USDC_ISSUER`                | string | —                                     | Stellar public key (G…)          | no      | ✖          | USDC issuer account                                                                      |
+| `STELLAR_SERVER_SECRET_KEY`  | string | —                                     | Stellar secret key (S…)          | **yes** | ✖         | Server keypair for SEP-10 style wallet challenges; absent = wallet verification disabled |
+| `USDC_CONTRACT_ID`           | string | —                                     | Contract ID                      | no      | ✖         | Soroban USDC contract                                                                    |
+| `USDC_ISSUER`                | string | —                                     | Stellar public key (G…)          | no      | ✖         | USDC issuer account                                                                      |
 
 ## External payments
 
 | Variable                             | Type   | Default                  | Range/Values    | Secret  | Hot reload | Description                          |
 | ------------------------------------ | ------ | ------------------------ | --------------- | ------- | ---------- | ------------------------------------ |
-| `PAYMENTS_PROVIDER`                  | enum   | `none`                   | `stripe` `none` | no      | ✖          | Active payment provider              |
-| `STRIPE_SECRET_KEY`                  | string | —                        | —               | **yes** | ✖          | Stripe API key                       |
-| `STRIPE_WEBHOOK_SECRET`              | string | —                        | —               | **yes** | ✖          | Stripe webhook HMAC secret           |
+| `PAYMENTS_PROVIDER`                  | enum   | `none`                   | `stripe` `none` | no      | ✖         | Active payment provider              |
+| `STRIPE_SECRET_KEY`                  | string | —                        | —               | **yes** | ✖         | Stripe API key                       |
+| `STRIPE_WEBHOOK_SECRET`              | string | —                        | —               | **yes** | ✖         | Stripe webhook HMAC secret           |
 | `STRIPE_API_BASE`                    | string | `https://api.stripe.com` | URL             | no      | ✅         | Stripe API base (override for tests) |
 | `PAYMENTS_WEBHOOK_TOLERANCE_SECONDS` | int    | `300`                    | 10–86400        | no      | ✅         | Webhook signature replay tolerance   |
 
@@ -191,21 +194,21 @@ When TLS terminates at a proxy, the proxy must validate the client certificate a
 
 ## Email
 
-| Variable           | Type   | Default                 | Range/Values  | Secret  | Hot reload | Description                                       |
-| ------------------ | ------ | ----------------------- | ------------- | ------- | ---------- | ------------------------------------------------- |
-| `FRONTEND_URL`     | string | `http://localhost:3000` | URL           | no      | ✅         | Base URL used in verification links               |
-| `SENDGRID_API_KEY` | string | —                       | —             | **yes** | ✖          | SendGrid API key; absent = email skipped (logged) |
-| `EMAIL_FROM`       | email  | —                       | valid address | no      | ✅         | From address                                      |
+| Variable                             | Type   | Default                            | Range/Values  | Secret  | Hot reload | Description                                       |
+| ------------------------------------ | ------ | ---------------------------------- | ------------- | ------- | ---------- | ------------------------------------------------- |
+| `FRONTEND_URL`                       | string | `http://localhost:3000`            | URL           | no      | ✅         | Base URL used in verification links               |
+| `VERIFICATION_DOCUMENT_STORAGE_PATH` | string | `./private/verification-documents` | directory     | no      | ✖         | Private creator-verification document storage     |
+| `SENDGRID_API_KEY`                   | string | —                                  | —             | **yes** | ✖         | SendGrid API key; absent = email skipped (logged) |
+| `EMAIL_FROM`                         | email  | —                                  | valid address | no      | ✅         | From address                                      |
 
 ## HTTP surface (CORS / proxy)
 
-| Variable                 | Type   | Default             | Range/Values                                      | Secret | Hot reload | Description                                                                 |
-| ------------------------ | ------ | ------------------- | ------------------------------------------------- | ------ | ---------- | --------------------------------------------------------------------------- |
-| `RESPONSE_CACHE_CONTROL` | string | `private, no-cache` | —                                                 | no     | ✅         | Default cache-control response header                                       |
-| `TRUST_PROXY`            | string | `false`             | `false` \| hop count \| comma separated IPs/CIDRs | no     | ✖          | How `request.ip` is derived from X-Forwarded-For (avoid `true` — spoofable) |
-| `CORS_ORIGINS`           | string | —                   | `*` or comma separated origins                    | no     | ✅         | Browser origin allowlist (see `getCorsOrigins`)                             |
-| `CORS_CREDENTIALS`       | bool   | `true`              | —                                                 | no     | ✅         | `Access-Control-Allow-Credentials`                                          |
-| `CORS_MAX_AGE`           | int    | `600`               | 0–86400                                           | no     | ✅         | Preflight cache (seconds)                                                   |
+| Variable           | Type   | Default | Range/Values                                      | Secret | Hot reload | Description                                                                 |
+| ------------------ | ------ | ------- | ------------------------------------------------- | ------ | ---------- | --------------------------------------------------------------------------- |
+| `TRUST_PROXY`      | string | `false` | `false` \| hop count \| comma separated IPs/CIDRs | no     | ✖         | How `request.ip` is derived from X-Forwarded-For (avoid `true` — spoofable) |
+| `CORS_ORIGINS`     | string | —       | `*` or comma separated origins                    | no     | ✅         | Browser origin allowlist (see `getCorsOrigins`)                             |
+| `CORS_CREDENTIALS` | bool   | `true`  | —                                                 | no     | ✅         | `Access-Control-Allow-Credentials`                                          |
+| `CORS_MAX_AGE`     | int    | `600`   | 0–86400                                           | no     | ✅         | Preflight cache (seconds)                                                   |
 
 ## Rate limiting
 
