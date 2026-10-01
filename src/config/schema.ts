@@ -41,16 +41,14 @@ function num(defaultValue: number, options: NumberOptions = {}) {
       const value = options.int ? Number.parseInt(text, 10) : Number(text);
       return value; // NaN reaches z.number(), which rejects it as invalid_type
     },
-    z
-      .number({ invalid_type_error: 'must be a number' })
-      .superRefine((value, ctx) => {
-        if (options.min !== undefined && value < options.min) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `must be >= ${options.min}` });
-        }
-        if (options.max !== undefined && value > options.max) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `must be <= ${options.max}` });
-        }
-      })
+    z.number({ invalid_type_error: 'must be a number' }).superRefine((value, ctx) => {
+      if (options.min !== undefined && value < options.min) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `must be >= ${options.min}` });
+      }
+      if (options.max !== undefined && value > options.max) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `must be <= ${options.max}` });
+      }
+    })
   );
 }
 
@@ -319,6 +317,7 @@ export type EnvConfig = z.infer<typeof EnvSchemaObject>;
 /** Keys that hold credentials and must be redacted in logs/audit entries. */
 export const SECRET_KEYS: ReadonlySet<string> = new Set([
   'JWT_SECRET',
+  'INTERNAL_SERVICE_API_KEYS',
   'STELLAR_SERVER_SECRET_KEY',
   'STRIPE_SECRET_KEY',
   'STRIPE_WEBHOOK_SECRET',
@@ -333,7 +332,10 @@ export function isSecretKey(key: string): boolean {
   if (SECRET_KEYS.has(key)) return true;
   // Deployments commonly inject extra credentials as SECRET_* / *_PASSWORD /
   // *_PRIVATE_KEY; stay on the safe side for anything matching those shapes.
-  return /^(SECRET|PASSWORD|PRIVATE_KEY|TOKEN|API_KEY)_/.test(key) || /_(PASSWORD|SECRET|PRIVATE_KEY|TOKEN)$/.test(key);
+  return (
+    /^(SECRET|PASSWORD|PRIVATE_KEY|TOKEN|API_KEY)_/.test(key) ||
+    /_(PASSWORD|SECRET|PRIVATE_KEY|TOKEN)$/.test(key)
+  );
 }
 
 /** Structured, printable issue list for a failed validation. */
