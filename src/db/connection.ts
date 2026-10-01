@@ -11,6 +11,7 @@ import {
 import { QueryLogger } from './query-logger';
 import { QueryCache, isReadOnlyQuery } from './query-cache';
 import { PreparedStatementConfig } from './query-optimizer';
+import { getReadReplicaManager } from './read-replicas';
 import {
   dbPoolTotalConnections,
   dbPoolIdleConnections,
@@ -49,6 +50,8 @@ export interface QueryOptions {
   cacheTtlMs?: number;
   cacheTags?: string[];
   bypassCircuitBreaker?: boolean;
+  /** Route eligible read-only SQL to a healthy replica when enabled. */
+  readReplica?: boolean;
 }
 
 export interface CustomDatabaseConfig {
@@ -347,6 +350,9 @@ export const query = async <R extends QueryResultRow = any>(
   const cacheKey = cacheAllowed ? qCache.generateKey(sql, queryParams) : null;
 
   const executeAction = async (): Promise<QueryResult<R>> => {
+    if (options.readReplica && isReadOnlyQuery(sql)) {
+      return getReadReplicaManager().query<R>(sql, queryParams);
+    }
     if (isPreparedStatement) {
       return currentPool.query<R>({
         name: textOrConfig.name,

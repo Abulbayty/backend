@@ -22,6 +22,7 @@ import {
 import { paginateWithCursor } from '../../db/pagination';
 import { buildTipMemo, validateMemo, validatePaymentAmount } from '../../lib/stellar/validation';
 import { TipFilterInput, buildTipWhere, describeTipFilters } from './tip-filters';
+import { invalidateCaches, tipCacheKeys } from '../../lib/cache/invalidation';
 
 /**
  * Columns required to build a `TipResponse`. Selecting explicitly keeps list
@@ -37,6 +38,9 @@ const TIP_RESPONSE_SELECT = {
   transactionHash: true,
   createdAt: true,
   updatedAt: true,
+  assetCode: true,
+  assetIssuer: true,
+  assetDecimals: true,
 } as const;
 
 /**
@@ -97,6 +101,11 @@ export class PaymentService extends BaseService {
       if (!creator.verified) {
         throw new ValidationError('Creator account must be verified to receive tips');
       }
+
+      const requestedAsset = data.assetId
+        ? await this.prisma.stellarAsset.findFirst({ where: { id: data.assetId, enabled: true } })
+        : await this.prisma.stellarAsset.findFirst({ where: { enabled: true, code: 'USDC' }, orderBy: { priority: 'desc' } });
+      if (data.assetId && !requestedAsset) throw new ValidationError('Asset is unavailable');
 
       // Verify sender is not tipping themselves
       const sender = await this.prisma.user.findUnique({
@@ -179,6 +188,10 @@ export class PaymentService extends BaseService {
             fromUserId: userId,
             creatorId: data.creatorId,
             amount: data.amount,
+            assetId: requestedAsset?.id ?? null,
+            assetCode: requestedAsset?.code ?? 'USDC',
+            assetIssuer: requestedAsset?.issuer ?? null,
+            assetDecimals: requestedAsset?.decimals ?? 7,
             message: data.message || null,
             status: TipStatus.PENDING,
             idempotencyKey: data.idempotencyKey ?? null,
@@ -202,6 +215,7 @@ export class PaymentService extends BaseService {
       }
 
       logger.info(`Tip created: ${tip.id} from ${userId} to ${data.creatorId} for ${data.amount}`);
+      await invalidateCaches(tipCacheKeys(tip.id, data.creatorId), 'tip.created');
       return this.formatTipResponse(tip);
     });
   }
@@ -785,6 +799,7 @@ export class PaymentService extends BaseService {
       }
 
       // Dispatch webhooks outside transaction
+      await invalidateCaches(tipCacheKeys(tipId, finalTip.creatorId), 'tip.completed');
       if (shouldDispatchWebhook) {
         try {
           // Dynamic import to avoid circular dependencies if any
@@ -1038,6 +1053,9 @@ export class PaymentService extends BaseService {
       transactionHash: tip.transactionHash || null,
       createdAt: tip.createdAt.toISOString(),
       updatedAt: tip.updatedAt.toISOString(),
+      assetCode: tip.assetCode ?? 'USDC',
+      assetIssuer: tip.assetIssuer ?? null,
+      assetDecimals: tip.assetDecimals ?? 7,
     };
   }
 }
