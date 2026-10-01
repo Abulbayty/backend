@@ -17,6 +17,8 @@ model User {
   role      String   @default("fan")
   verified  Boolean  @default(false)
   authVersion Int    @default(0)
+  failedLoginAttempts Int @default(0)
+  lockedUntil DateTime?
   notificationPreferences Json @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -25,9 +27,45 @@ model User {
   wallets   Wallet[]
   tips      Tip[]
   payments  Payment[]
+  twoFactor TwoFactorAuth?
+  trustedDevices TrustedDevice[]
+  twoFactorEvents TwoFactorEvent[]
   userRoles UserRole[]
+  sessions Session[]
+  passwordResetTokens PasswordResetToken[]
 }
 
+model TwoFactorAuth {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  secret          String
+  backupCodes     String[]
+  enabled         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model TrustedDevice {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  @@index([userId, expiresAt])
+}
+
+model TwoFactorEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  success   Boolean
+  ip        String?
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
 model Role {
   id          String           @id @default(cuid())
   name        String           @unique
@@ -81,8 +119,6 @@ model RoleChange {
   createdAt DateTime @default(now())
   @@index([actorId, createdAt])
   @@index([targetId, createdAt])
-}
-
 model Creator {
   id     String @id @default(cuid())
   userId String @unique
@@ -106,8 +142,14 @@ model Creator {
   freezes         AccountFreeze[]
   payments        Payment[]
   payouts         Payout[]
+  verificationRequests CreatorVerificationRequest[]
+  verificationEvents CreatorVerificationEvent[]
   // Teams this creator belongs to (#66).
   teamMemberships CreatorTeamMember[] @relation("CreatorTeamMembers")
+  defaultAssetId String?
+  defaultAsset StellarAsset? @relation("CreatorDefaultAsset", fields: [defaultAssetId], references: [id], onDelete: SetNull)
+  verificationRequests CreatorVerificationRequest[]
+  verificationEvents CreatorVerificationEvent[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -194,6 +236,11 @@ model Tip {
   creator   Creator @relation("CreatorTips", fields: [creatorId], references: [id], onDelete: Cascade)
 
   amount  Float
+  assetId String?
+  asset StellarAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  assetCode String @default("USDC")
+  assetIssuer String?
+  assetDecimals Int @default(7)
   message String?
 
   status          String  @default("pending")
@@ -227,6 +274,56 @@ model Tip {
   @@index([amount], map: "idx_tip_amount")
   @@index([status, amount], map: "idx_tip_status_amount")
   @@index([fromUserId, amount], map: "idx_tip_fromUser_amount")
+  @@index([assetId, createdAt], map: "idx_tip_asset_createdAt")
+}
+
+model StellarAsset {
+  id        String   @id @default(cuid())
+  code      String
+  issuer    String?
+  name      String
+  decimals  Int      @default(7)
+  enabled   Boolean  @default(true)
+  priority  Int      @default(0)
+  feeBps    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tips            Tip[]
+  defaultCreators Creator[] @relation("CreatorDefaultAsset")
+
+  @@unique([code, issuer], map: "uniq_stellarAsset_code_issuer")
+  @@index([enabled, priority], map: "idx_stellarAsset_enabled_priority")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  device       String?
+  userAgent    String?
+  ipAddress    String?
+  lastActivity DateTime @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([lastActivity])
+}
+
+model AuthAttempt {
+  id        String   @id @default(cuid())
+  email     String?
+  ipAddress String
+  action    String
+  success   Boolean  @default(false)
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([ipAddress, action, createdAt])
+  @@index([email, action, createdAt])
 }
 
 model BlacklistedToken {
@@ -288,18 +385,37 @@ model Webhook {
   url    String
   events String[] // tip.created, tip.confirmed, tip.failed, payout.completed
   secret String // HMAC secret for signature verification
+  previousSecret String? // Previous secret during rotation period
+  secretRotatedAt DateTime? // When secret was last rotated
   active Boolean  @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   webhookEvents WebhookEvent[]
+  webhookNonces WebhookNonce[]
 
   @@index([creatorId])
   // Webhook listing per creator, newest first.
   @@index([creatorId, createdAt(sort: Desc)], map: "idx_webhook_creator_createdAt")
   // Delivery worker only fans out to active endpoints.
   @@index([creatorId, active, createdAt(sort: Desc)], map: "idx_webhook_creator_active_createdAt")
+}
+
+model WebhookNonce {
+  id        String   @id @default(cuid())
+  webhookId String
+  webhook   Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  
+  nonce     String   @unique // The nonce value from webhook request
+  timestamp BigInt   // Unix timestamp of the webhook request
+  expiresAt DateTime // When this nonce can be cleaned up
+  
+  createdAt DateTime @default(now())
+
+  @@index([webhookId, timestamp])
+  @@index([expiresAt]) // For cleanup of expired nonces
+  @@index([nonce]) // Fast lookup for replay detection
 }
 
 model WebhookEvent {
