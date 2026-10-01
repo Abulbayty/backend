@@ -33,6 +33,7 @@ export const CreateTipSchema = z.object({
    * instead of creating (and charging for) a duplicate.
    */
   idempotencyKey: z.string().trim().min(8).max(255).optional(),
+assetId: z.string().trim().min(1).max(100).optional(),
   /**
    * IDs of previously uploaded media to attach to this tip's message. Each id
    * must reference media owned by the tipper that finished scanning (`ready`).
@@ -95,6 +96,9 @@ export interface TipResponse {
   media: MediaView[];
   createdAt: string;
   updatedAt: string;
+  assetCode: string;
+  assetIssuer: string | null;
+  assetDecimals: number;
 }
 
 /**
