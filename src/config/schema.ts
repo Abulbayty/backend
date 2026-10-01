@@ -126,7 +126,10 @@ export const EnvSchemaObject = z
     // ── Runtime ────────────────────────────────────────────────────────────
     NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
     PORT: int(3000, { min: 1, max: 65_535 }),
+    HTTP2_ENABLED: bool(false),
     LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
+    RESPONSE_CACHE_CONTROL: z.string().default('private, no-cache'),
+    RESPONSE_COMPRESSION_ENABLED: bool(true),
     // Max time (ms) to wait for in-flight requests to drain on SIGTERM/SIGINT (#23).
     SHUTDOWN_TIMEOUT_MS: int(30_000, { min: 1_000, max: 300_000 }),
     // Swagger server host (e.g. api.example.com). Empty = localhost.
@@ -134,6 +137,10 @@ export const EnvSchemaObject = z
 
     // ── Database ───────────────────────────────────────────────────────────
     DATABASE_URL: optionalString,
+    DATABASE_READ_REPLICA_URLS: optionalString,
+    DB_REPLICA_ENABLED: bool(false),
+    DB_REPLICA_LAG_TOLERANCE_SECONDS: int(5, { min: 0, max: 300 }),
+    DB_REPLICA_HEALTHCHECK_INTERVAL_MS: int(10_000, { min: 1_000, max: 600_000 }),
     DB_POOL_MIN: int(2, { min: 1, max: 100 }),
     DB_POOL_MAX: int(20, { min: 1, max: 100 }),
     DB_CONNECTION_TIMEOUT_MS: int(5_000, { min: 100, max: 60_000 }),
@@ -219,6 +226,7 @@ export const EnvSchemaObject = z
 
     // ── Email ──────────────────────────────────────────────────────────────
     FRONTEND_URL: z.string().default('http://localhost:3000'),
+    VERIFICATION_DOCUMENT_STORAGE_PATH: z.string().default('./private/verification-documents'),
     SENDGRID_API_KEY: optionalString,
     EMAIL_FROM: optionalEmail,
 
@@ -238,6 +246,10 @@ export const EnvSchemaObject = z
     RATE_LIMIT_AUTHENTICATED_WINDOW_MS: int(60_000, { min: 1_000, max: 3_600_000 }),
     RATE_LIMIT_SENSITIVE_MAX: int(10, { min: 1, max: 1_000 }),
     RATE_LIMIT_SENSITIVE_WINDOW_MS: int(60_000, { min: 1_000, max: 3_600_000 }),
+
+    // ── API versioning ─────────────────────────────────────────────────────
+    SUPPORTED_API_VERSIONS: z.string().default('1,2'),
+    API_V1_SUNSET_DATE: z.string().optional(),
 
     // ── GraphQL ────────────────────────────────────────────────────────────
     GRAPHQL_ENABLED: bool(true),

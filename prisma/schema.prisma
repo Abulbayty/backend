@@ -29,6 +29,7 @@ model User {
   trustedDevices TrustedDevice[]
   twoFactorEvents TwoFactorEvent[]
   userRoles UserRole[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model TwoFactorAuth {
@@ -138,6 +139,8 @@ model Creator {
   freezes         AccountFreeze[]
   payments        Payment[]
   payouts         Payout[]
+  verificationRequests CreatorVerificationRequest[]
+  verificationEvents CreatorVerificationEvent[]
   // Teams this creator belongs to (#66).
   teamMemberships CreatorTeamMember[] @relation("CreatorTeamMembers")
   
