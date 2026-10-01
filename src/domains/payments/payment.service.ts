@@ -23,6 +23,7 @@ import { paginateWithCursor } from '../../db/pagination';
 import { buildTipMemo, validateMemo, validatePaymentAmount } from '../../lib/stellar/validation';
 import { TIP_VISIBLE_STATE } from '../moderation/moderation.types';
 import { TipFilterInput, buildTipWhere, describeTipFilters } from './tip-filters';
+import { getRequestId, withRequestIdPayload } from '../../lib/requestContext';
 import { invalidateCaches, tipCacheKeys } from '../../lib/cache/invalidation';
 
 /**
@@ -832,7 +833,8 @@ const where = buildTipWhere({ fromUserId: userId, ...VISIBLE_TIPS_ONLY }, params
               await webhookDispatchQueue.add('webhook-dispatch', {
                 webhookId: webhook.id,
                 eventType: 'tip.completed',
-                payload: { tip: finalTip },
+                requestId: getRequestId(),
+                payload: withRequestIdPayload({ tip: finalTip }),
               });
             }
           }

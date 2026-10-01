@@ -63,6 +63,9 @@ import { registerSecurityPlugins } from './plugins/security';
 import { registerApiVersioning } from './plugins/apiVersion';
 import { globalErrorHandler, notFoundHandler } from './middleware/error-handler';
 import { registerGraphQL } from './graphql/plugin';
+import { createCreatorTierRuntime } from './domains/creators/tier.runtime';
+import { registerRequestLogging } from './plugins/requestLogging';
+import { resolveRequestId } from './lib/requestContext';
 import { startCacheInvalidationSubscriber, stopCacheInvalidationSubscriber } from './lib/cache/invalidation';
 
 // Behind a reverse proxy, TRUST_PROXY makes request.ip the real client
@@ -74,14 +77,16 @@ const app = Fastify({
   trustProxy,
   genReqId: (request) => {
     const incoming = request.headers['x-request-id'];
-    return typeof incoming === 'string' && /^[A-Za-z0-9._:-]{1,128}$/.test(incoming)
-      ? incoming
-      : randomUUID();
+    return resolveRequestId(incoming, randomUUID);
   },
   logger: {
     level: config.LOG_LEVEL,
   },
 }) as unknown as FastifyInstance;
+
+// Register before all application hooks/routes so context and response IDs
+// cover normal responses, validation failures, and unknown routes.
+registerRequestLogging(app);
 
 // Unsafe-but-valid settings (e.g. TRUST_PROXY=true) are reported together on
 // boot; see src/config/warnings.ts.
@@ -104,6 +109,7 @@ registerResponseOptimization(app);
 // duration metrics, slow-query logging, short-lived read cache and unbounded
 // read detection. The returned client is a regular PrismaClient.
 const { client: prisma } = createInstrumentedPrismaClient();
+const creatorTiers = createCreatorTierRuntime(prisma);
 
 // Response schemas are documentation-only; see config/serialization.ts.
 applyJsonSerializer(app);

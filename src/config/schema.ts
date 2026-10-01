@@ -231,6 +231,7 @@ export const EnvSchemaObject = z
     EMAIL_FROM: optionalEmail,
 
     // ── HTTP surface ───────────────────────────────────────────────────────
+    RESPONSE_CACHE_CONTROL: z.string().default('private, no-cache'),
     // Reverse proxy trust: false | number of hops | comma separated CIDR list.
     TRUST_PROXY: z.string().default('false'),
     CORS_ORIGINS: optionalString,
