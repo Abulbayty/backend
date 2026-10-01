@@ -50,7 +50,7 @@ import { registerJobRoutes } from './domains/jobs/jobs.routes';
 import { registerAssetRoutes } from './domains/assets/asset.routes';
 import { registerApm } from './lib/apm';
 import { closeQueues } from './lib/queue';
-import redisPool, { startRedisHealthCheck } from './lib/redisPool';
+import redisPool, { closeRedisPool, startRedisHealthCheck } from './lib/redisPool';
 import { emailNotificationWorker } from './lib/workers/email-notification.worker';
 import { initTokenBlacklist, closeTokenBlacklist } from './utils/token-blacklist';
 import { parseTrustProxy } from './config/rate-limit';
@@ -246,6 +246,7 @@ const shutdown = async (signal: 'SIGTERM' | 'SIGINT'): Promise<void> => {
     await stopCacheInvalidationSubscriber();
     await emailNotificationWorker.close();
     await closeQueues();
+    await closeRedisPool();
     await closeDatabase();
     await prisma.$disconnect();
     closeTokenBlacklist();
