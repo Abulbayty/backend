@@ -5,6 +5,31 @@ import { config } from '../../config';
 
 type CacheOptions = { ttlMs?: number; prefix?: string };
 
+/**
+ * Logical cache domains. Each maps to a default TTL (ms) in `TTL_CONFIG`, so
+ * callers can request "cache this user" without hardcoding durations.
+ */
+export enum CacheType {
+  USER = 'user',
+  CREATOR = 'creator',
+  TIPS = 'tips',
+  EARNINGS = 'earnings',
+  TRENDING = 'trending',
+  ANALYTICS = 'analytics',
+}
+
+/** Default TTL (ms) per cache domain. */
+export const TTL_CONFIG: Record<CacheType, number> = {
+  [CacheType.USER]: 5 * 60 * 1000, // 5 minutes
+  [CacheType.CREATOR]: 10 * 60 * 1000, // 10 minutes
+  [CacheType.TIPS]: 5 * 60 * 1000,
+  [CacheType.EARNINGS]: 60 * 1000,
+  [CacheType.TRENDING]: 1 * 60 * 1000, // 1 minute
+  // Kept at the legacy cache-aside TTL for compatibility; analytics writes
+  // always invalidate immediately and invalidation policy caps fresh entries.
+  [CacheType.ANALYTICS]: 60 * 60 * 1000,
+};
+
 const memoryCache = new LRUCache<string, any>({
   max: config.CACHE_FALLBACK_MEMORY_SIZE,
   ttl: 1000 * 60 * 60, // default 1h
@@ -60,7 +85,7 @@ export function resetStats(): void {
   stats.errors = 0;
 }
 
-export async function get(key: string, opts?: CacheOptions): Promise<any> {
+export async function get(key: string, _opts?: CacheOptions): Promise<any> {
   // try redis first
   try {
     return await withRedis(async (client) => {
