@@ -11,7 +11,7 @@
  *   5. Routes, GraphQL, metrics.
  *   6. Graceful shutdown (issue #23): flip readiness, drain, close in order.
  */
-import Fastify from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import compress from '@fastify/compress';
 import cookie from '@fastify/cookie';
@@ -28,6 +28,7 @@ import {
 import { createInstrumentedPrismaClient, getPrismaPerformanceMonitor } from './db/prisma-performance';
 import { getCircuitBreakerSnapshots as getExternalBreakerSnapshots } from './lib/circuit-breaker';
 import { registerAuthRoutes } from './domains/auth/auth.routes';
+import { registerTwoFactorRoutes } from './domains/auth/two-factor.routes';
 import { registerWalletRoutes } from './domains/auth/wallet.routes';
 import { registerPaymentRoutes } from './domains/payments/payment.routes';
 import { registerChargeRoutes } from './domains/payments/charge.routes';
@@ -53,18 +54,19 @@ import { collectConfigWarnings, logConfigWarnings } from './config/warnings';
 import { logger } from './utils/logger';
 import { registerRateLimiting } from './plugins/rateLimit';
 import { registerResponseOptimization } from './plugins/responseOptimization';
+import { swaggerConfig } from './config/swagger';
 import { registerSecurityPlugins } from './plugins/security';
 import { registerApiVersioning } from './plugins/apiVersion';
-import { registerGraphQL } from './graphql/plugin';
 import { globalErrorHandler, notFoundHandler } from './middleware/error-handler';
+import { registerGraphQL } from './graphql/plugin';
+import { startCacheInvalidationSubscriber, stopCacheInvalidationSubscriber } from './lib/cache/invalidation';
 
 // Behind a reverse proxy, TRUST_PROXY makes request.ip the real client
 // address instead of the proxy's, so per-IP rate limits don't bucket every
 // user together. See docs/RATE_LIMITING.md.
 const trustProxy = parseTrustProxy(config.TRUST_PROXY);
 
-const app: any = Fastify({
-  http2: config.HTTP2_ENABLED,
+const app = Fastify({
   trustProxy,
   genReqId: (request) => {
     const incoming = request.headers['x-request-id'];
@@ -75,7 +77,7 @@ const app: any = Fastify({
   logger: {
     level: config.LOG_LEVEL,
   },
-});
+}) as unknown as FastifyInstance;
 
 // Unsafe-but-valid settings (e.g. TRUST_PROXY=true) are reported together on
 // boot; see src/config/warnings.ts.
@@ -90,6 +92,8 @@ await app.register(compress, {
   encodings: ['br', 'gzip', 'deflate'],
   threshold: 1024,
 });
+await app.register(swagger, swaggerConfig.openapi);
+await app.register(swaggerUi, swaggerConfig.uiConfig);
 registerResponseOptimization(app);
 
 // Initialize Prisma with query performance instrumentation (issue #12):
@@ -107,6 +111,7 @@ app.register(cookie, {
 
 // Register routes
 registerAuthRoutes(app, prisma);
+registerTwoFactorRoutes(app, prisma);
 registerWalletRoutes(app, prisma);
 registerPaymentRoutes(app, prisma);
 registerUserRoutes(app, prisma);
@@ -222,6 +227,7 @@ const shutdown = async (signal: 'SIGTERM' | 'SIGINT'): Promise<void> => {
     // sequence, including this step).
     await app.close();
     // Flush buffered creator usage counters before the database goes away.
+    await stopCacheInvalidationSubscriber();
     await emailNotificationWorker.close();
     await closeQueues();
     await closeDatabase();
@@ -250,6 +256,7 @@ const bootstrap = async (): Promise<void> => {
   await registerSecurityPlugins(app);
 
   await initTokenBlacklist(prisma);
+  await startCacheInvalidationSubscriber();
 
   // API versioning (#25): validates an optional API-Version header against
   // SUPPORTED_API_VERSIONS and records per-version usage metrics. Existing
@@ -258,6 +265,7 @@ const bootstrap = async (): Promise<void> => {
   registerApiVersioning(app);
 
   registerAuthRoutes(app, prisma);
+  registerTwoFactorRoutes(app, prisma);
   registerWalletRoutes(app, prisma);
   registerPaymentRoutes(app, prisma);
   registerChargeRoutes(app, prisma);
