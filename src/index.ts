@@ -13,10 +13,8 @@
  */
 import Fastify, { type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import cors from '@fastify/cors';
 import compress from '@fastify/compress';
-import swagger from '@fastify/swagger';
-import swaggerUi from '@fastify/swagger-ui';
+import cookie from '@fastify/cookie';
 import { config } from './config/env';
 import { applyJsonSerializer } from './config/serialization';
 import { setServiceState } from './services/health.service';
@@ -30,6 +28,7 @@ import {
 import { createInstrumentedPrismaClient, getPrismaPerformanceMonitor } from './db/prisma-performance';
 import { getCircuitBreakerSnapshots as getExternalBreakerSnapshots } from './lib/circuit-breaker';
 import { registerAuthRoutes } from './domains/auth/auth.routes';
+import { registerTwoFactorRoutes } from './domains/auth/two-factor.routes';
 import { registerWalletRoutes } from './domains/auth/wallet.routes';
 import { registerPaymentRoutes } from './domains/payments/payment.routes';
 import { registerChargeRoutes } from './domains/payments/charge.routes';
@@ -37,13 +36,17 @@ import { registerUserRoutes } from './domains/users/user.routes';
 import { registerCreatorPayoutRoutes } from './domains/creators/payout.routes';
 import { registerTeamRoutes } from './domains/teams/team.routes';
 import { registerWebhookRoutes } from './domains/webhooks/webhook.routes';
+import { registerIncomingWebhookRoutes } from './domains/webhooks/webhook-incoming.routes';
 import { registerAnalyticsRoutes } from './domains/analytics/analytics.routes';
 import { registerAdminRoutes } from './domains/admin/admin.routes';
 import { registerRoleRoutes } from './domains/roles/role.routes';
 import { registerNotificationRoutes } from './domains/notifications/notification.routes';
 import { registerMetricsRoute } from './routes/metrics.routes';
+import { registerPrivacyRoutes } from './domains/privacy/privacy.routes';
 import { registerQueryPerformanceRoutes } from './routes/query-performance.routes';
 import { registerJobRoutes } from './domains/jobs/jobs.routes';
+import { registerAssetRoutes } from './domains/assets/asset.routes';
+import { registerApm } from './lib/apm';
 import { closeQueues } from './lib/queue';
 import redisPool, { startRedisHealthCheck } from './lib/redisPool';
 import { emailNotificationWorker } from './lib/workers/email-notification.worker';
@@ -53,6 +56,7 @@ import { collectConfigWarnings, logConfigWarnings } from './config/warnings';
 import { logger } from './utils/logger';
 import { registerRateLimiting } from './plugins/rateLimit';
 import { registerResponseOptimization } from './plugins/responseOptimization';
+import { swaggerConfig } from './config/swagger';
 import { registerSecurityPlugins } from './plugins/security';
 import { registerApiVersioning } from './plugins/apiVersion';
 import { globalErrorHandler, notFoundHandler } from './middleware/error-handler';
@@ -60,6 +64,7 @@ import { registerGraphQL } from './graphql/plugin';
 import { createCreatorTierRuntime } from './domains/creators/tier.runtime';
 import { registerRequestLogging } from './plugins/requestLogging';
 import { resolveRequestId } from './lib/requestContext';
+import { startCacheInvalidationSubscriber, stopCacheInvalidationSubscriber } from './lib/cache/invalidation';
 
 // Behind a reverse proxy, TRUST_PROXY makes request.ip the real client
 // address instead of the proxy's, so per-IP rate limits don't bucket every
@@ -67,7 +72,6 @@ import { resolveRequestId } from './lib/requestContext';
 const trustProxy = parseTrustProxy(config.TRUST_PROXY);
 
 const app = Fastify({
-  http2: config.HTTP2_ENABLED,
   trustProxy,
   genReqId: (request) => {
     const incoming = request.headers['x-request-id'];
@@ -89,11 +93,14 @@ logConfigWarnings(logger, collectConfigWarnings());
 // Rate limiting (#1) classifies routes in an onRoute hook, so it must be
 // registered before any route is added.
 await registerRateLimiting(app);
+registerApm(app);
 await app.register(compress, {
   global: config.RESPONSE_COMPRESSION_ENABLED,
   encodings: ['br', 'gzip', 'deflate'],
   threshold: 1024,
 });
+await app.register(swagger, swaggerConfig.openapi);
+await app.register(swaggerUi, swaggerConfig.uiConfig);
 registerResponseOptimization(app);
 
 // Initialize Prisma with query performance instrumentation (issue #12):
@@ -112,16 +119,21 @@ app.register(cookie, {
 
 // Register routes
 registerAuthRoutes(app, prisma);
+registerTwoFactorRoutes(app, prisma);
 registerWalletRoutes(app, prisma);
 registerPaymentRoutes(app, prisma);
 registerUserRoutes(app, prisma);
 registerCreatorPayoutRoutes(app, prisma);
 registerWebhookRoutes(app, prisma);
+registerIncomingWebhookRoutes(app, prisma);
 registerAnalyticsRoutes(app, prisma);
 registerNotificationRoutes(app, prisma);
 registerAdminRoutes(app, prisma);
 registerRoleRoutes(app, prisma);
 registerMetricsRoute(app, prisma);
+registerPrivacyRoutes(app, prisma);
+registerQueryPerformanceRoutes(app, prisma);
+registerJobRoutes(app, prisma);
 
 // Health check endpoint
 app.get('/health', async (_request, _reply) => {
@@ -227,7 +239,7 @@ const shutdown = async (signal: 'SIGTERM' | 'SIGINT'): Promise<void> => {
     // sequence, including this step).
     await app.close();
     // Flush buffered creator usage counters before the database goes away.
-    await creatorTiers.close();
+    await stopCacheInvalidationSubscriber();
     await emailNotificationWorker.close();
     await closeQueues();
     await closeDatabase();
@@ -256,6 +268,7 @@ const bootstrap = async (): Promise<void> => {
   await registerSecurityPlugins(app);
 
   await initTokenBlacklist(prisma);
+  await startCacheInvalidationSubscriber();
 
   // API versioning (#25): validates an optional API-Version header against
   // SUPPORTED_API_VERSIONS and records per-version usage metrics. Existing
@@ -264,6 +277,7 @@ const bootstrap = async (): Promise<void> => {
   registerApiVersioning(app);
 
   registerAuthRoutes(app, prisma);
+  registerTwoFactorRoutes(app, prisma);
   registerWalletRoutes(app, prisma);
   registerPaymentRoutes(app, prisma);
   registerChargeRoutes(app, prisma);
@@ -271,12 +285,14 @@ const bootstrap = async (): Promise<void> => {
   registerCreatorPayoutRoutes(app, prisma);
   registerTeamRoutes(app, prisma);
   registerWebhookRoutes(app, prisma);
+  registerIncomingWebhookRoutes(app, prisma);
   registerAnalyticsRoutes(app, prisma);
   registerAdminRoutes(app, prisma);
   registerRoleRoutes(app, prisma);
   registerMetricsRoute(app, prisma);
   registerQueryPerformanceRoutes(app);
   registerJobRoutes(app);
+  registerAssetRoutes(app, prisma);
 
   await registerGraphQL(app, prisma);
 };
