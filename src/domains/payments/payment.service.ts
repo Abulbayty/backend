@@ -12,7 +12,6 @@ import { ValidationError, NotFoundError, UnauthorizedError, ConflictError } from
 import {
   buildPaymentTransaction,
   submitSignedTransaction,
-  checkTransactionStatus,
 } from '../../lib/stellar/transactions';
 import { logger } from '../../utils/logger';
 import {
@@ -23,6 +22,8 @@ import {
 import { paginateWithCursor } from '../../db/pagination';
 import { buildTipMemo, validateMemo, validatePaymentAmount } from '../../lib/stellar/validation';
 import { TIP_VISIBLE_STATE } from '../moderation/moderation.types';
+import { TipFilterInput, buildTipWhere, describeTipFilters } from './tip-filters';
+import { invalidateCaches, tipCacheKeys } from '../../lib/cache/invalidation';
 
 /**
  * Columns required to build a `TipResponse`. Selecting explicitly keeps list
@@ -38,6 +39,9 @@ const TIP_RESPONSE_SELECT = {
   transactionHash: true,
   createdAt: true,
   updatedAt: true,
+assetCode: true,
+  assetIssuer: true,
+  assetDecimals: true,
   // Needed so a tip removed by a moderation decision 404s on direct lookup (#62).
   moderationState: true,
 } as const;
@@ -108,6 +112,11 @@ export class PaymentService extends BaseService {
         throw new ValidationError('Creator account must be verified to receive tips');
       }
 
+      const requestedAsset = data.assetId
+        ? await this.prisma.stellarAsset.findFirst({ where: { id: data.assetId, enabled: true } })
+        : await this.prisma.stellarAsset.findFirst({ where: { enabled: true, code: 'USDC' }, orderBy: { priority: 'desc' } });
+      if (data.assetId && !requestedAsset) throw new ValidationError('Asset is unavailable');
+
       // Verify sender is not tipping themselves
       const sender = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -128,7 +137,7 @@ export class PaymentService extends BaseService {
           userId,
           verified: true,
         },
-        select: { id: true },
+        select: { id: true, publicKey: true },
       });
 
       if (!wallet) {
@@ -189,6 +198,10 @@ export class PaymentService extends BaseService {
             fromUserId: userId,
             creatorId: data.creatorId,
             amount: data.amount,
+            assetId: requestedAsset?.id ?? null,
+            assetCode: requestedAsset?.code ?? 'USDC',
+            assetIssuer: requestedAsset?.issuer ?? null,
+            assetDecimals: requestedAsset?.decimals ?? 7,
             message: data.message || null,
             status: TipStatus.PENDING,
             idempotencyKey: data.idempotencyKey ?? null,
@@ -212,6 +225,7 @@ export class PaymentService extends BaseService {
       }
 
       logger.info(`Tip created: ${tip.id} from ${userId} to ${data.creatorId} for ${data.amount}`);
+      await invalidateCaches(tipCacheKeys(tip.id, data.creatorId), 'tip.created');
       return this.formatTipResponse(tip);
     });
   }
@@ -247,8 +261,7 @@ export class PaymentService extends BaseService {
     creatorId: string,
     page: number = 1,
     pageSize: number = 20,
-    options: {
-      status?: string;
+    options: TipFilterInput & {
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
     } = {}
@@ -260,6 +273,7 @@ export class PaymentService extends BaseService {
     totalPages: number;
     hasNext: boolean;
     hasPrev: boolean;
+    filters: Record<string, unknown>;
   }> {
     return this.executeWithLogging('payment.listTips', async () => {
       // Verify creator exists
@@ -275,10 +289,9 @@ export class PaymentService extends BaseService {
       const safePage = sanitizePageNumber(page);
       const safePageSize = sanitizePageSize(pageSize, 20);
 
-      const where: any = { creatorId, ...VISIBLE_TIPS_ONLY };
-      if (options.status) {
-        where.status = options.status;
-      }
+// Database-side filtering (#56): status, date range, amount range,
+      // text search, sender and creator are all pushed into the query.
+      const where = buildTipWhere({ creatorId, ...VISIBLE_TIPS_ONLY }, options);
 
       const sortFields = parseSortParameters(
         options.sortBy,
@@ -312,6 +325,7 @@ export class PaymentService extends BaseService {
         totalPages,
         hasNext: safePage < totalPages,
         hasPrev: safePage > 1,
+        filters: describeTipFilters(options),
       };
     });
   }
@@ -321,13 +335,12 @@ export class PaymentService extends BaseService {
    */
   async listTipsCursor(
     creatorId: string,
-    params: {
+    params: TipFilterInput & {
       limit?: number;
       cursor?: string;
       after?: string;
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
-      status?: string;
     } = {}
   ) {
     return this.executeWithLogging('payment.listTipsCursor', async () => {
@@ -339,10 +352,7 @@ export class PaymentService extends BaseService {
         throw new NotFoundError('Creator');
       }
 
-      const where: any = { creatorId, ...VISIBLE_TIPS_ONLY };
-      if (params.status) {
-        where.status = params.status;
-      }
+const where = buildTipWhere({ creatorId, ...VISIBLE_TIPS_ONLY }, params);
 
       const result = await paginateWithCursor(
         this.prisma.tip,
@@ -365,6 +375,7 @@ export class PaymentService extends BaseService {
         ...result,
         items: result.items.map((tip) => this.formatTipResponse(tip)),
         data: result.data.map((tip) => this.formatTipResponse(tip)),
+        filters: describeTipFilters(params),
       };
     });
   }
@@ -376,8 +387,7 @@ export class PaymentService extends BaseService {
     userId: string,
     page: number = 1,
     pageSize: number = 20,
-    options: {
-      status?: string;
+    options: TipFilterInput & {
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
     } = {}
@@ -389,16 +399,14 @@ export class PaymentService extends BaseService {
     totalPages: number;
     hasNext: boolean;
     hasPrev: boolean;
+    filters: Record<string, unknown>;
   }> {
     return this.executeWithLogging('payment.getUserTipHistory', async () => {
       // Validate pagination
       const safePage = sanitizePageNumber(page);
       const safePageSize = sanitizePageSize(pageSize, 20);
 
-      const where: any = { fromUserId: userId, ...VISIBLE_TIPS_ONLY };
-      if (options.status) {
-        where.status = options.status;
-      }
+const where = buildTipWhere({ fromUserId: userId, ...VISIBLE_TIPS_ONLY }, options);
 
       const sortFields = parseSortParameters(
         options.sortBy,
@@ -432,6 +440,7 @@ export class PaymentService extends BaseService {
         totalPages,
         hasNext: safePage < totalPages,
         hasPrev: safePage > 1,
+        filters: describeTipFilters(options),
       };
     });
   }
@@ -441,20 +450,16 @@ export class PaymentService extends BaseService {
    */
   async getUserTipHistoryCursor(
     userId: string,
-    params: {
+    params: TipFilterInput & {
       limit?: number;
       cursor?: string;
       after?: string;
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
-      status?: string;
     } = {}
   ) {
     return this.executeWithLogging('payment.getUserTipHistoryCursor', async () => {
-      const where: any = { fromUserId: userId, ...VISIBLE_TIPS_ONLY };
-      if (params.status) {
-        where.status = params.status;
-      }
+const where = buildTipWhere({ fromUserId: userId, ...VISIBLE_TIPS_ONLY }, params);
 
       const result = await paginateWithCursor(
         this.prisma.tip,
@@ -477,6 +482,76 @@ export class PaymentService extends BaseService {
         ...result,
         items: result.items.map((tip) => this.formatTipResponse(tip)),
         data: result.data.map((tip) => this.formatTipResponse(tip)),
+        filters: describeTipFilters(params),
+      };
+    });
+  }
+
+  /**
+   * Cross-creator tip search for analytics and moderation (#56).
+   *
+   * Unlike the history and creator listings there is no implicit scope, so the
+   * caller supplies the filters explicitly (every one of them optional) and the
+   * result carries the applied filters back plus the total matching count, so a
+   * client can paginate without a second request. The route that exposes this
+   * is admin-only because it can read tips the caller does not own.
+   */
+  async searchTips(
+    page: number = 1,
+    pageSize: number = 20,
+    options: TipFilterInput & {
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    } = {}
+  ): Promise<{
+    tips: TipResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    filters: Record<string, unknown>;
+  }> {
+    return this.executeWithLogging('payment.searchTips', async () => {
+      const safePage = sanitizePageNumber(page);
+      const safePageSize = sanitizePageSize(pageSize, 20);
+
+      const where = buildTipWhere({}, options);
+
+      const sortFields = parseSortParameters(
+        options.sortBy,
+        options.sortOrder,
+        ['createdAt', 'amount', 'status', 'id', 'updatedAt'],
+        'createdAt',
+        'desc'
+      );
+
+      const orderBy = sortFields.map((s) => ({ [s.field]: s.direction }));
+      const skip = (safePage - 1) * safePageSize;
+
+      const [tips, total] = await Promise.all([
+        this.prisma.tip.findMany({
+          where,
+          select: TIP_RESPONSE_SELECT,
+          skip,
+          take: safePageSize,
+          orderBy,
+        }),
+        this.prisma.tip.count({ where }),
+      ]);
+
+      const totalPages = Math.ceil(total / safePageSize);
+
+      return {
+        tips: tips.map((tip) => this.formatTipResponse(tip)),
+        total,
+        page: safePage,
+        pageSize: safePageSize,
+        totalPages,
+        hasNext: safePage < totalPages,
+        hasPrev: safePage > 1,
+        filters: describeTipFilters(options),
       };
     });
   }
@@ -742,6 +817,7 @@ export class PaymentService extends BaseService {
       }
 
       // Dispatch webhooks outside transaction
+      await invalidateCaches(tipCacheKeys(tipId, finalTip.creatorId), 'tip.completed');
       if (shouldDispatchWebhook) {
         try {
           // Dynamic import to avoid circular dependencies if any
@@ -995,6 +1071,9 @@ export class PaymentService extends BaseService {
       transactionHash: tip.transactionHash || null,
       createdAt: tip.createdAt.toISOString(),
       updatedAt: tip.updatedAt.toISOString(),
+      assetCode: tip.assetCode ?? 'USDC',
+      assetIssuer: tip.assetIssuer ?? null,
+      assetDecimals: tip.assetDecimals ?? 7,
     };
   }
 }
