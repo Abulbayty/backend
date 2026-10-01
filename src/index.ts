@@ -42,6 +42,7 @@ import { registerAdminRoutes } from './domains/admin/admin.routes';
 import { registerRoleRoutes } from './domains/roles/role.routes';
 import { registerNotificationRoutes } from './domains/notifications/notification.routes';
 import { registerMetricsRoute } from './routes/metrics.routes';
+import { registerPrivacyRoutes } from './domains/privacy/privacy.routes';
 import { registerQueryPerformanceRoutes } from './routes/query-performance.routes';
 import { registerJobRoutes } from './domains/jobs/jobs.routes';
 import { registerAssetRoutes } from './domains/assets/asset.routes';
@@ -124,6 +125,9 @@ registerNotificationRoutes(app, prisma);
 registerAdminRoutes(app, prisma);
 registerRoleRoutes(app, prisma);
 registerMetricsRoute(app, prisma);
+registerPrivacyRoutes(app, prisma);
+registerQueryPerformanceRoutes(app, prisma);
+registerJobRoutes(app, prisma);
 
 // Health check endpoint
 app.get('/health', async (_request, _reply) => {
