@@ -3,7 +3,6 @@ import cache, {
   CacheType,
   TTL_CONFIG,
   getStats,
-  getHitRate,
   resetStats,
   increment,
   zAdd,

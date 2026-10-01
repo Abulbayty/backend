@@ -6,9 +6,10 @@ import {
   CircuitBreakerState,
   CircuitBreakerMetrics,
 } from './circuit-breaker';
-import { QueryLogger, QueryLogOptions } from './query-logger';
+import { QueryLogger } from './query-logger';
 import { QueryCache, isReadOnlyQuery } from './query-cache';
 import { PreparedStatementConfig } from './query-optimizer';
+import { getReadReplicaManager } from './read-replicas';
 import {
   dbPoolTotalConnections,
   dbPoolIdleConnections,
@@ -47,6 +48,8 @@ export interface QueryOptions {
   cacheTtlMs?: number;
   cacheTags?: string[];
   bypassCircuitBreaker?: boolean;
+  /** Route eligible read-only SQL to a healthy replica when enabled. */
+  readReplica?: boolean;
 }
 
 export interface CustomDatabaseConfig {
@@ -178,7 +181,7 @@ export const initializeDatabase = async (
     pool = new Pool(poolConfig);
 
     // Event listeners on pool
-    pool.on('error', (err: Error, client: PoolClient) => {
+    pool.on('error', (err: Error, _client: PoolClient) => {
       logger.error({ err }, 'Unexpected error on idle database client');
       dbQueryErrorsCounter.inc({ error_code: 'IDLE_CLIENT_ERROR' });
       // Client is automatically discarded by pg.Pool upon error event
@@ -320,6 +323,9 @@ export const query = async <R extends QueryResultRow = any>(
   const cacheKey = cacheAllowed ? qCache.generateKey(sql, queryParams) : null;
 
   const executeAction = async (): Promise<QueryResult<R>> => {
+    if (options.readReplica && isReadOnlyQuery(sql)) {
+      return getReadReplicaManager().query<R>(sql, queryParams);
+    }
     if (isPreparedStatement) {
       return currentPool.query<R>({
         name: textOrConfig.name,

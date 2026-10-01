@@ -1,7 +1,7 @@
 import { createClient, RedisClientType } from 'redis';
 import genericPool from 'generic-pool';
 import { config } from '../config';
-import { cacheHits, cacheMisses, registerPoolMetrics } from './metrics';
+import { registerPoolMetrics } from './metrics';
 
 type PooledRedis = RedisClientType;
 
@@ -34,7 +34,10 @@ const factory: genericPool.Factory<PooledRedis> = {
 const opts: genericPool.Options = {
   min: config.REDIS_POOL_MIN,
   max: config.REDIS_POOL_MAX,
-  acquireTimeoutMillis: config.REDIS_CONNECTION_TIMEOUT_MS,
+  // Redis is a best-effort layer with in-memory fallbacks everywhere, so a
+  // short acquire window is deliberate: when Redis is down, callers fall back
+  // after ~3s instead of piling up for the full connection timeout.
+  acquireTimeoutMillis: Math.min(config.REDIS_CONNECTION_TIMEOUT_MS, 3_000),
   idleTimeoutMillis: config.REDIS_POOL_IDLE_TIMEOUT_MS,
 };
 
