@@ -24,8 +24,24 @@ import {
 } from './payment.schemas';
 import { formatSuccess } from '../../types/response';
 import { authMiddleware } from '../../middleware/auth';
+import { requireAdmin } from '../../middleware/rbac';
 import { rateLimitTipCreation } from '../../middleware/rate-limit';
 import { validateRequest } from '../../middleware/validation';
+
+/**
+ * Normalizes the filter half of a listing query into the shape the service
+ * expects, so every listing route forwards exactly the same filter set (#56).
+ */
+const tipFilterOptions = (query: TipHistoryQueryInput) => ({
+  status: query.status,
+  minDate: query.minDate,
+  maxDate: query.maxDate,
+  minAmount: query.minAmount,
+  maxAmount: query.maxAmount,
+  query: query.query,
+  fromUserId: query.fromUserId,
+  creatorId: query.creatorId,
+});
 
 export const registerPaymentRoutes = (app: FastifyInstance, prisma: PrismaClient): void => {
   const paymentService = new PaymentService(prisma);
@@ -134,7 +150,7 @@ export const registerPaymentRoutes = (app: FastifyInstance, prisma: PrismaClient
           after: query.after,
           sortBy: query.sortBy,
           sortOrder: query.sortOrder,
-          status: query.status,
+          ...tipFilterOptions(query),
         });
         reply.send(formatSuccess(result));
       } else {
@@ -144,7 +160,7 @@ export const registerPaymentRoutes = (app: FastifyInstance, prisma: PrismaClient
         const result = await paymentService.getUserTipHistory(user.userId, page, pageSize, {
           sortBy: query.sortBy,
           sortOrder: query.sortOrder,
-          status: query.status,
+          ...tipFilterOptions(query),
         });
         reply.send(formatSuccess(result));
       }
@@ -187,7 +203,7 @@ export const registerPaymentRoutes = (app: FastifyInstance, prisma: PrismaClient
           after: query.after,
           sortBy: query.sortBy,
           sortOrder: query.sortOrder,
-          status: query.status,
+          ...tipFilterOptions(query),
         });
         reply.send(formatSuccess(result));
       } else {
@@ -197,7 +213,7 @@ export const registerPaymentRoutes = (app: FastifyInstance, prisma: PrismaClient
         const result = await paymentService.listTips(creatorId, page, pageSize, {
           sortBy: query.sortBy,
           sortOrder: query.sortOrder,
-          status: query.status,
+          ...tipFilterOptions(query),
         });
         reply.send(formatSuccess(result));
       }
@@ -318,6 +334,40 @@ export const registerPaymentRoutes = (app: FastifyInstance, prisma: PrismaClient
     },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
       const result = await paymentService.checkTransactionConfirmation(request.params.id);
+      reply.send(formatSuccess(result));
+    }
+  );
+
+  /**
+   * GET /api/v1/transactions/search
+   * Search tips across every creator with the same filter grammar as the
+   * listing endpoints: date range, amount range, status, free-text query,
+   * sender and creator. Admin-only, because it is not scoped to the caller.
+   * Returns the matching page plus the applied filters and the total count.
+   */
+  app.get<{ Querystring: TipHistoryQueryInput }>(
+    '/api/v1/transactions/search',
+    {
+      preHandler: [requireAdmin, validateRequest({ query: TipHistoryQuerySchema })],
+      schema: {
+        querystring: tipHistoryQueryJsonSchema,
+        response: {
+          200: { description: 'Tips matching the filters with pagination metadata' },
+          401: { description: 'Unauthorized' },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Querystring: TipHistoryQueryInput }>, reply: FastifyReply) => {
+      const query = request.query;
+      const page = query.page ?? 1;
+      const pageSize = query.pageSize ?? query.limit ?? 20;
+
+      const result = await paymentService.searchTips(page, pageSize, {
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
+        ...tipFilterOptions(query),
+      });
+
       reply.send(formatSuccess(result));
     }
   );
