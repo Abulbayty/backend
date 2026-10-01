@@ -28,10 +28,10 @@ export interface RouteMatcher {
 }
 
 export interface RateLimitRule extends RouteMatcher {
-  class: RateLimitClass;
+  class: RateLimitClass | 'authLogin' | 'authRegister' | 'authRecovery';
 }
 
-export const RATE_LIMIT_POLICIES: Record<RateLimitClass, RateLimitPolicy> = {
+export const RATE_LIMIT_POLICIES: Record<string, RateLimitPolicy> = {
   public: {
     max: config.RATE_LIMIT_PUBLIC_MAX,
     timeWindowMs: config.RATE_LIMIT_PUBLIC_WINDOW_MS,
@@ -44,6 +44,9 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitClass, RateLimitPolicy> = {
     max: config.RATE_LIMIT_SENSITIVE_MAX,
     timeWindowMs: config.RATE_LIMIT_SENSITIVE_WINDOW_MS,
   },
+  authLogin: { max: 5, timeWindowMs: 5 * 60_000 },
+  authRegister: { max: 3, timeWindowMs: 60 * 60_000 },
+  authRecovery: { max: 3, timeWindowMs: 60 * 60_000 },
 };
 
 /**

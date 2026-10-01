@@ -32,11 +32,11 @@ import { logger } from '../utils/logger';
  * sized by its class.
  */
 
-export type RouteClassification = RateLimitClass | 'internal' | 'exempt';
+export type RouteClassification = RateLimitClass | 'authLogin' | 'authRegister' | 'authRecovery' | 'exempt';
 
 export interface RateLimitingOptions {
   enabled?: boolean;
-  policies?: Partial<Record<RateLimitClass, RateLimitPolicy>>;
+  policies?: Record<string, RateLimitPolicy>;
   rules?: RateLimitRule[];
   exemptions?: RouteMatcher[];
   store?: 'memory' | 'redis';
@@ -79,7 +79,7 @@ function classifyMethod(
  */
 export function classifyRoute(
   routeOptions: RouteOptions,
-  policies: Partial<Record<RateLimitClass, RateLimitPolicy>> = RATE_LIMIT_POLICIES,
+  policies: Record<string, RateLimitPolicy> = RATE_LIMIT_POLICIES,
   rules: RateLimitRule[] = RATE_LIMIT_RULES,
   exemptions: RouteMatcher[] = RATE_LIMIT_EXEMPTIONS
 ): RouteClassification {
@@ -211,6 +211,13 @@ export async function registerRateLimiting(
     }
 
     const routeClass = classifyRoute(routeOptions, policies, rules, exemptions);
+    const authOverride = routeOptions.url === '/api/v1/auth/login'
+      ? 'authLogin'
+      : routeOptions.url === '/api/v1/auth/register'
+        ? 'authRegister'
+        : ['/api/v1/auth/password-reset', '/api/v1/auth/password-reset/confirm'].includes(routeOptions.url)
+          ? 'authRecovery'
+          : routeClass;
     routeOptions.config = {
       ...routeOptions.config,
       rateLimit:
