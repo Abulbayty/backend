@@ -13,10 +13,8 @@
  */
 import Fastify, { type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import cookie from '@fastify/cookie';
 import compress from '@fastify/compress';
-import swagger from '@fastify/swagger';
-import swaggerUi from '@fastify/swagger-ui';
+import cookie from '@fastify/cookie';
 import { config } from './config/env';
 import { applyJsonSerializer } from './config/serialization';
 import { setServiceState } from './services/health.service';
@@ -45,6 +43,8 @@ import { registerNotificationRoutes } from './domains/notifications/notification
 import { registerMetricsRoute } from './routes/metrics.routes';
 import { registerQueryPerformanceRoutes } from './routes/query-performance.routes';
 import { registerJobRoutes } from './domains/jobs/jobs.routes';
+import { registerAssetRoutes } from './domains/assets/asset.routes';
+import { registerApm } from './lib/apm';
 import { closeQueues } from './lib/queue';
 import redisPool, { startRedisHealthCheck } from './lib/redisPool';
 import { emailNotificationWorker } from './lib/workers/email-notification.worker';
@@ -86,6 +86,7 @@ logConfigWarnings(logger, collectConfigWarnings());
 // Rate limiting (#1) classifies routes in an onRoute hook, so it must be
 // registered before any route is added.
 await registerRateLimiting(app);
+registerApm(app);
 await app.register(compress, {
   global: config.RESPONSE_COMPRESSION_ENABLED,
   encodings: ['br', 'gzip', 'deflate'],
@@ -278,6 +279,7 @@ const bootstrap = async (): Promise<void> => {
   registerMetricsRoute(app, prisma);
   registerQueryPerformanceRoutes(app);
   registerJobRoutes(app);
+  registerAssetRoutes(app, prisma);
 
   await registerGraphQL(app, prisma);
 };

@@ -1,7 +1,7 @@
-/** Backwards-compatible configuration entry point. */
 import { getConfig } from './loader';
 
-export const config = getConfig();
+/** Backwards-compatible runtime config access for legacy modules. */
+export const config = getConfig() as any;
 
 /** Resolve CORS origins from the centralized configuration. */
 export function getCorsOrigins(): string[] | true {
