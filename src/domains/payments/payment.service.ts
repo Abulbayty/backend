@@ -24,7 +24,9 @@ import { buildTipMemo, validateMemo, validatePaymentAmount } from '../../lib/ste
 import { config } from '../../config/env';
 import { MAX_MEDIA_PER_TIP, type MediaView } from '../media/media.types';
 import { buildCdnUrl } from '../media/media.storage';
+import { TIP_VISIBLE_STATE } from '../moderation/moderation.types';
 import { TipFilterInput, buildTipWhere, describeTipFilters } from './tip-filters';
+import { getRequestId, withRequestIdPayload } from '../../lib/requestContext';
 import { invalidateCaches, tipCacheKeys } from '../../lib/cache/invalidation';
 
 /**
@@ -72,7 +74,16 @@ media: {
   assetCode: true,
   assetIssuer: true,
   assetDecimals: true,
+  // Needed so a tip removed by a moderation decision 404s on direct lookup (#62).
+  moderationState: true,
 } as const;
+
+/**
+ * Content moderation read-side (#62): a tip that is hidden while a report is
+ * open, or removed by a resolved decision, is not part of any public tip list.
+ * `ModerationService` owns the state; this is what it means for readers.
+ */
+const VISIBLE_TIPS_ONLY = { moderationState: TIP_VISIBLE_STATE } as const;
 
 /**
  * Raised internally when the version-guarded update loses a race. The retry loop
@@ -331,6 +342,12 @@ if (attachableMedia.length) {
         throw new NotFoundError('Tip');
       }
 
+      // Removed content is gone rather than hidden: a direct lookup 404s, while a
+      // hidden tip stays readable so its sender and creator can see it (#62).
+      if (tip.moderationState === 'removed') {
+        throw new NotFoundError('Tip');
+      }
+
       return this.formatTipResponse(tip);
     });
   }
@@ -370,9 +387,9 @@ if (attachableMedia.length) {
       const safePage = sanitizePageNumber(page);
       const safePageSize = sanitizePageSize(pageSize, 20);
 
-      // Database-side filtering (#56): status, date range, amount range,
+// Database-side filtering (#56): status, date range, amount range,
       // text search, sender and creator are all pushed into the query.
-      const where = buildTipWhere({ creatorId }, options);
+      const where = buildTipWhere({ creatorId, ...VISIBLE_TIPS_ONLY }, options);
 
       const sortFields = parseSortParameters(
         options.sortBy,
@@ -433,7 +450,7 @@ if (attachableMedia.length) {
         throw new NotFoundError('Creator');
       }
 
-      const where = buildTipWhere({ creatorId }, params);
+const where = buildTipWhere({ creatorId, ...VISIBLE_TIPS_ONLY }, params);
 
       const result = await paginateWithCursor(
         this.prisma.tip,
@@ -487,7 +504,7 @@ if (attachableMedia.length) {
       const safePage = sanitizePageNumber(page);
       const safePageSize = sanitizePageSize(pageSize, 20);
 
-      const where = buildTipWhere({ fromUserId: userId }, options);
+const where = buildTipWhere({ fromUserId: userId, ...VISIBLE_TIPS_ONLY }, options);
 
       const sortFields = parseSortParameters(
         options.sortBy,
@@ -540,7 +557,7 @@ if (attachableMedia.length) {
     } = {}
   ) {
     return this.executeWithLogging('payment.getUserTipHistoryCursor', async () => {
-      const where = buildTipWhere({ fromUserId: userId }, params);
+const where = buildTipWhere({ fromUserId: userId, ...VISIBLE_TIPS_ONLY }, params);
 
       const result = await paginateWithCursor(
         this.prisma.tip,
@@ -684,6 +701,7 @@ if (attachableMedia.length) {
       const tips = await this.prisma.tip.findMany({
         where: {
           creatorId,
+          ...VISIBLE_TIPS_ONLY,
         },
         take: limit + 1,
         ...(cursorObj ? { cursor: { id: cursorObj.id }, skip: 1 } : {}),
@@ -753,6 +771,7 @@ if (attachableMedia.length) {
       const tips = await this.prisma.tip.findMany({
         where: {
           fromUserId: userId,
+          ...VISIBLE_TIPS_ONLY,
         },
         take: limit + 1,
         ...(cursorObj ? { cursor: { id: cursorObj.id }, skip: 1 } : {}),
@@ -911,7 +930,8 @@ if (attachableMedia.length) {
               await webhookDispatchQueue.add('webhook-dispatch', {
                 webhookId: webhook.id,
                 eventType: 'tip.completed',
-                payload: { tip: finalTip },
+                requestId: getRequestId(),
+                payload: withRequestIdPayload({ tip: finalTip }),
               });
             }
           }
