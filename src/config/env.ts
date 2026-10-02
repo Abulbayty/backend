@@ -1,5 +1,14 @@
+/**
+ * Backwards-compatible configuration entry point.
+ *
+ * The canonical schema and layered loader live in `schema.ts` and `loader.ts`.
+ * Older modules import from `config/env`, so this module intentionally re-exports
+ * the same validated snapshot and the small compatibility helper used by the
+ * security plugin.
+ */
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import { getConfig } from './loader';
 
 dotenv.config();
 
@@ -164,6 +173,19 @@ const validateEnv = (): Environment => {
 };
 
 export const config = validateEnv();
+
+/**
+ * Convert the comma-separated CORS allowlist into the shape Fastify expects.
+ * An omitted or wildcard value intentionally permits any origin.
+ */
+export function getCorsOrigins(): true | string[] {
+  const raw = config.CORS_ORIGINS?.trim();
+  if (!raw || raw === '*') return true;
+
+  const origins = raw
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
 /** Resolve CORS origins from the centralized configuration. */
 export function getCorsOrigins(): string[] | true {
