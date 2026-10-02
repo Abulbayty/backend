@@ -9,6 +9,7 @@
 import { config } from './env';
 
 export type RateLimitClass = 'public' | 'authenticated' | 'sensitive';
+export type InternalRateLimitClass = 'internal';
 
 export interface RateLimitPolicy {
   /** Requests allowed per client, per route, within `timeWindowMs`. */
